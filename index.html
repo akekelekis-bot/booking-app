@@ -749,7 +749,8 @@ document.getElementById('booking-form').addEventListener('submit', async (e) => 
       ? `Γεια σου ${name}, το ραντεβού σου στο SportsRehub επιβεβαιώθηκε για ${dLabel} στις ${selectedSlot.time}. Θερμοπύλων 1, Άγιος Νικόλαος. Τηλ: 2841089303`
       : `Hi ${name}, your appointment at SportsRehub is confirmed for ${dLabel} at ${selectedSlot.time}. Thermopylon 1, Agios Nikolaos. Tel: 2841089303`;
 
-    supa.functions.invoke('send-sms', { body: { phone: phone, message: smsText } })
+    const adminText = `Νέο ραντεβού: ${name}, ${dLabel} ${selectedSlot.time}, ${phone}${reason ? ' — ' + reason : ''}`;
+    supa.functions.invoke('send-sms', { body: { phone: phone, message: smsText, adminMessage: adminText } })
       .catch(err => console.error('SMS send failed:', err));
 
     // Success — show confirmation
