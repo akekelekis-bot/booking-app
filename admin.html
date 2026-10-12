@@ -187,6 +187,14 @@
   .appt:hover{filter:brightness(.93);}
   .appt:hover b{text-decoration:underline;}
   .appt.cancelled b{text-decoration:line-through;}
+  .search{position:relative; margin:0 0 12px;}
+  .search input{width:100%; padding:11px 14px; border:1px solid var(--line); border-radius:6px; font-family:'Inter',sans-serif; font-size:14px; background:var(--white); color:var(--ink);}
+  .search-res{display:none; position:absolute; left:0; right:0; top:100%; margin-top:4px; z-index:20; background:var(--white); border:1px solid var(--line); border-radius:6px; max-height:340px; overflow:auto; box-shadow:0 8px 24px rgba(0,0,0,.12);}
+  .search-res button{display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:10px 14px; background:none; border:none; border-bottom:1px solid var(--line); font-family:'Inter',sans-serif; font-size:13px; color:var(--ink); cursor:pointer;}
+  .search-res button:hover{background:var(--cream-2);}
+  .search-res .dot{width:10px; height:10px; border-radius:50%; flex:none;}
+  .search-res small{color:var(--ink-soft);}
+  .search-res .none{padding:12px 14px; color:var(--ink-soft); font-size:13px;}
   .legend{display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin:0 0 12px; font-size:13px; color:var(--ink-soft);}
   .legend label{display:flex; align-items:center; gap:6px; cursor:pointer;}
   .legend input[type=color]{width:28px; height:28px; border:1px solid var(--line); border-radius:6px; padding:0; background:none; cursor:pointer;}
@@ -276,6 +284,11 @@
       <button class="arrow" id="next-btn" aria-label="Επόμενο">›</button>
       <button class="today" id="today-btn">Σήμερα</button>
     </div>
+  </div>
+
+  <div class="search">
+    <input type="search" id="search" placeholder="🔍 Αναζήτηση: όνομα, τηλέφωνο ή σημείωση…" autocomplete="off">
+    <div class="search-res" id="search-res"></div>
   </div>
 
   <div class="legend">
@@ -484,6 +497,30 @@ function renderMonth(){
   html += '</div></div>';
   document.getElementById('view').innerHTML = html;
 }
+
+// ---------- search ----------
+const norm = t => (t||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ς/g,'σ');
+const STATUS_LABEL = { new:'Νέο', completed:'Ολοκληρωμένο', cancelled:'Ακυρωμένο' };
+const searchEl = document.getElementById('search'), resEl = document.getElementById('search-res');
+searchEl.addEventListener('input', () => {
+  const q = norm(searchEl.value.trim());
+  if (!q) { resEl.style.display = 'none'; return; }
+  const hits = bookings.filter(b => norm(b.name + ' ' + b.phone + ' ' + b.reason).includes(q))
+    .sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time)).slice(0, 40);
+  resEl.innerHTML = hits.length ? hits.map(b => {
+    const d = parseYmd(b.date);
+    return `<button data-id="${b.id}"><span class="dot" style="background:${colors[b.status]}"></span><span><b>${escapeHtml(b.name)}</b> <small>${escapeHtml(b.phone)}</small><br><small>${DAYS_SHORT[dowMon(d)]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()} · ${b.time} · ${STATUS_LABEL[b.status]}${b.reason ? ' · ' + escapeHtml(b.reason) : ''}</small></span></button>`;
+  }).join('') : '<div class="none">Δεν βρέθηκε κανένα ραντεβού.</div>';
+  resEl.style.display = 'block';
+});
+resEl.addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  const b = bookings.find(x => x.id === btn.dataset.id); if (!b) return;
+  resEl.style.display = 'none'; searchEl.value = '';
+  anchor = parseYmd(b.date); if (mode === 'month') mode = 'week';
+  render(); openModal(b);
+});
+document.addEventListener('click', e => { if (!e.target.closest('.search')) resEl.style.display = 'none'; });
 
 // ---------- navigation ----------
 document.getElementById('mode-seg').addEventListener('click', e => {
