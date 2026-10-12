@@ -59,6 +59,7 @@
     background:var(--cream);
     color:var(--ink);
   }
+  .field select{width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px; font-family:'Inter',sans-serif; font-size:14px; background:var(--white); color:var(--ink);}
   .field textarea{resize:vertical; min-height:60px;}
   .btn{
     background:var(--ink);
@@ -81,7 +82,7 @@
   #login-error{color:#C0392B; font-size:13px; margin-top:10px; text-align:center; display:none;}
 
   /* DASHBOARD */
-  #dashboard{display:none; max-width:1100px; margin:0 auto;}
+  #dashboard{display:none; max-width:1500px; margin:0 auto;}
   .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px;}
   .topbar .right{display:flex; gap:8px;}
 
@@ -135,14 +136,13 @@
     background:var(--white);
     border:1px solid var(--line);
     border-radius:6px;
-    overflow:auto;
-    max-height:calc(100vh - 160px);
+    overflow-x:auto;
   }
   .tgrid{display:grid;}
   .tgrid > div{min-width:0;}
   .tgrid > div{border-right:1px solid var(--line); border-bottom:1px solid var(--line);}
   .th{
-    position:sticky; top:0; z-index:2;
+    position:static; z-index:2;
     background:var(--cream-2);
     text-align:center;
     padding:8px 4px;
@@ -162,7 +162,7 @@
     padding:6px 8px;
     text-align:right;
   }
-  .cell{min-height:84px; padding:4px; cursor:pointer;}
+  .cell{min-height:92px; padding:4px; cursor:pointer;}
   .cell:hover{background:#FBF8F1;}
   .cell.weekend{background:#FAF8F3;}
   .appt{
@@ -181,10 +181,18 @@
     color:var(--ink);
     cursor:pointer;
   }
-  .appt:hover{background:#F6DFC8;}
+  .appt.new{--bg:var(--bg-new); --fg:var(--fg-new);} .appt.completed{--bg:var(--bg-completed); --fg:var(--fg-completed);} .appt.cancelled{--bg:var(--bg-cancelled); --fg:var(--fg-cancelled);}
+  .appt{background:var(--bg,#EFEBDF); color:var(--fg,#1A1714); border-left-color:rgba(0,0,0,.25);}
+
+  .appt:hover{filter:brightness(.93);}
   .appt:hover b{text-decoration:underline;}
+  .appt.cancelled b{text-decoration:line-through;}
+  .legend{display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin:0 0 12px; font-size:13px; color:var(--ink-soft);}
+  .legend label{display:flex; align-items:center; gap:6px; cursor:pointer;}
+  .legend input[type=color]{width:28px; height:28px; border:1px solid var(--line); border-radius:6px; padding:0; background:none; cursor:pointer;}
+  .legend button{background:none; border:none; color:var(--ink-soft); font-size:12px; text-decoration:underline; cursor:pointer;}
   .appt b{display:block; font-weight:600; white-space:normal; overflow-wrap:anywhere;}
-  .appt span{color:var(--ink-soft); font-size:11px; display:block; white-space:normal; overflow-wrap:anywhere;}
+  .appt span{color:inherit; opacity:.85; font-size:11px; display:block; white-space:normal; overflow-wrap:anywhere;}
 
   /* MONTH */
   .cal-wrap{background:var(--white); border:1px solid var(--line); border-radius:6px; padding:14px;}
@@ -225,7 +233,7 @@
 
   @media (max-width:640px){
     .nav .label{min-width:120px; font-size:14px;}
-    .grid-wrap{max-height:calc(100vh - 230px);}
+    .grid-wrap{}
   }
 </style>
 </head>
@@ -270,6 +278,14 @@
     </div>
   </div>
 
+  <div class="legend">
+    <span>Χρώματα:</span>
+    <label><input type="color" id="col-new"> Νέο</label>
+    <label><input type="color" id="col-completed"> Ολοκληρωμένο</label>
+    <label><input type="color" id="col-cancelled"> Ακυρωμένο</label>
+    <button type="button" id="col-reset">Επαναφορά</button>
+  </div>
+
   <div id="view"></div>
 </div>
 
@@ -284,11 +300,18 @@
       </div>
       <div class="field"><label>Ονοματεπώνυμο</label><input type="text" id="f-name" required></div>
       <div class="field"><label>Τηλέφωνο</label><input type="tel" id="f-phone" required></div>
+      <div class="field"><label>Κατάσταση</label>
+        <select id="f-status">
+          <option value="new">Νέο</option>
+          <option value="completed">Ολοκληρωμένο</option>
+          <option value="cancelled">Ακυρωμένο</option>
+        </select>
+      </div>
       <div class="field"><label>Αιτιολογία / Σημείωση</label><textarea id="f-reason"></textarea></div>
       <div id="modal-msg"></div>
       <div class="modal-actions">
         <button type="submit" class="btn" id="save-btn">Αποθήκευση</button>
-        <button type="button" class="btn danger" id="delete-btn">Ακύρωση ραντεβού</button>
+        <button type="button" class="btn danger" id="delete-btn">Διαγραφή</button>
         <button type="button" class="btn ghost" id="close-btn">Κλείσιμο</button>
       </div>
     </form>
@@ -319,6 +342,26 @@ let bookings = [];   // {id, slotId, date, time, name, phone, reason}
 let mode = 'week';
 let anchor = new Date(); anchor.setHours(0,0,0,0);
 let editing = null;  // booking being edited, or null for a new one
+
+// ---------- status colours ----------
+const DEFAULT_COLORS = { new:'#E07A2C', completed:'#CFE3D0', cancelled:'#2B2B2B' };
+let colors = {...DEFAULT_COLORS};
+try { Object.assign(colors, JSON.parse(localStorage.getItem('sr_colors') || '{}')); } catch(e){}
+function textOn(hex){
+  const n = parseInt(hex.slice(1),16), r=n>>16&255, g=n>>8&255, b=n&255;
+  return (0.299*r + 0.587*g + 0.114*b) > 150 ? '#1A1714' : '#FFFFFF';
+}
+function applyColors(){
+  const st = document.documentElement.style;
+  for (const k of Object.keys(DEFAULT_COLORS)) {
+    st.setProperty('--bg-'+k, colors[k]); st.setProperty('--fg-'+k, textOn(colors[k]));
+    const inp = document.getElementById('col-'+k); if (inp) inp.value = colors[k];
+  }
+}
+function saveColors(){ try { localStorage.setItem('sr_colors', JSON.stringify(colors)); } catch(e){} }
+['new','completed','cancelled'].forEach(k => document.getElementById('col-'+k).addEventListener('input', e => { colors[k] = e.target.value; saveColors(); applyColors(); }));
+document.getElementById('col-reset').addEventListener('click', () => { colors = {...DEFAULT_COLORS}; saveColors(); applyColors(); });
+applyColors();
 
 // ---------- auth ----------
 document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -353,9 +396,13 @@ function showDashboard(){
 async function loadBookings(){
   const view = document.getElementById('view');
   view.innerHTML = '<div style="padding:40px;text-align:center;color:var(--ink-soft)">Φόρτωση…</div>';
-  const { data, error } = await supa
+  let { data, error } = await supa
     .from('bookings')
-    .select('id, full_name, phone, reason, availability:slot_id ( id, slot_date, slot_time )');
+    .select('id, full_name, phone, reason, status, availability:slot_id ( id, slot_date, slot_time )');
+  if (error) {   // status column not created yet -> load without it
+    ({ data, error } = await supa.from('bookings')
+      .select('id, full_name, phone, reason, availability:slot_id ( id, slot_date, slot_time )'));
+  }
   if (error) {
     console.error(error);
     view.innerHTML = '<div style="padding:40px;text-align:center;color:var(--ink-soft)">Σφάλμα φόρτωσης. Δοκίμασε ανανέωση.</div>';
@@ -368,7 +415,8 @@ async function loadBookings(){
     time: b.availability.slot_time.slice(0,5),
     name: b.full_name,
     phone: b.phone,
-    reason: b.reason || ''
+    reason: b.reason || '',
+    status: b.status || 'new'
   }));
   render();
 }
@@ -392,11 +440,11 @@ function renderTimetable(days){
 
   const keys = days.map(ymd);
   const inRange = bookings.filter(b => keys.includes(b.date));
-  let first = 8, last = 21;
+  let first = 9, last = 21;
   inRange.forEach(b => { const h = parseInt(b.time.slice(0,2),10); first = Math.min(first,h); last = Math.max(last,h); });
 
   const todayKey = ymd(new Date());
-  const colMin = days.length === 1 ? 360 : 200;
+  const colMin = days.length === 1 ? 360 : 120;
   let html = `<div class="grid-wrap"><div class="tgrid" style="grid-template-columns:70px repeat(${days.length}, minmax(${colMin}px, 1fr)); min-width:${70 + days.length*colMin}px">`;
   html += '<div class="th corner"></div>';
   days.forEach(d => {
@@ -410,7 +458,7 @@ function renderTimetable(days){
         .filter(b => b.date === key && parseInt(b.time.slice(0,2),10) === h)
         .sort((a,b) => a.time.localeCompare(b.time));
       html += `<div class="cell${dowMon(d)>=5?' weekend':''}" data-date="${key}" data-hour="${h}">` +
-        items.map(b => `<button class="appt" data-id="${b.id}"><b>✏️ ${b.time} ${escapeHtml(b.name)}</b><span>${escapeHtml(b.phone)}${b.reason ? ' · ' + escapeHtml(b.reason) : ''}</span></button>`).join('') +
+        items.map(b => `<button class="appt ${b.status}" data-id="${b.id}"><b>✏️ ${b.time} ${escapeHtml(b.name)}</b><span>${escapeHtml(b.phone)}${b.reason ? ' · ' + escapeHtml(b.reason) : ''}</span></button>`).join('') +
         '</div>';
     });
   }
@@ -422,7 +470,7 @@ function renderMonth(){
   const y = anchor.getFullYear(), m = anchor.getMonth();
   document.getElementById('range-label').textContent = `${MONTHS[m]} ${y}`;
   const counts = {};
-  bookings.forEach(b => { counts[b.date] = (counts[b.date]||0) + 1; });
+  bookings.forEach(b => { if (b.status !== 'cancelled') counts[b.date] = (counts[b.date]||0) + 1; });
   const todayKey = ymd(new Date());
   const offset = dowMon(new Date(y, m, 1));
   const dim = new Date(y, m+1, 0).getDate();
@@ -472,10 +520,19 @@ function openModal(b, date, time){
   document.getElementById('f-name').value = b ? b.name : '';
   document.getElementById('f-phone').value = b ? b.phone : '';
   document.getElementById('f-reason').value = b ? b.reason : '';
+  document.getElementById('f-status').value = b ? b.status : 'new';
+  syncLock();
   document.getElementById('delete-btn').style.display = b ? '' : 'none';
   setMsg('');
   modal.style.display = 'flex';
 }
+// A cancelled appointment doesn't hold a time slot, so its date/time are locked while it stays cancelled.
+function syncLock(){
+  const lock = !!editing && document.getElementById('f-status').value === 'cancelled';
+  if (lock) { document.getElementById('f-date').value = editing.date; document.getElementById('f-time').value = editing.time; }
+  document.getElementById('f-date').disabled = lock; document.getElementById('f-time').disabled = lock;
+}
+document.getElementById('f-status').addEventListener('change', syncLock);
 function closeModal(){ modal.style.display = 'none'; editing = null; }
 function setMsg(t){ const el = document.getElementById('modal-msg'); el.textContent = t; el.className = t ? 'err' : ''; }
 document.getElementById('close-btn').addEventListener('click', closeModal);
@@ -538,16 +595,28 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
       if (error) throw error;
       sendSms(phone, name, date, time);
     } else {
-      const moved = date !== editing.date || time !== editing.time;
-      let slotId = editing.slotId;
-      if (moved) {
-        slotId = await claimSlot(date, time, editing.slotId);
+      const status = document.getElementById('f-status').value;
+      const wasActive = editing.status !== 'cancelled', willBeActive = status !== 'cancelled';
+      const regularOld = isRegularSlot(editing.date, editing.time);
+      let slotId = editing.slotId, moved = false;
+      if (wasActive && willBeActive) {
+        moved = date !== editing.date || time !== editing.time;
+        if (moved) {
+          slotId = await claimSlot(date, time, editing.slotId);
+          if (!slotId) { setMsg('Αυτή η ώρα είναι ήδη κλεισμένη.'); return; }
+        }
+      } else if (!wasActive && willBeActive) {          // un-cancel: take a slot again
+        slotId = await claimSlot(date, time, regularOld ? null : editing.slotId);
         if (!slotId) { setMsg('Αυτή η ώρα είναι ήδη κλεισμένη.'); return; }
+        moved = date !== editing.date || time !== editing.time;
       }
-      const { error } = await supa.from('bookings').update({ slot_id: slotId, full_name: name, phone, reason }).eq('id', editing.id);
+      const upd = { slot_id: slotId, full_name: name, phone, reason, status };
+      let { error } = await supa.from('bookings').update(upd).eq('id', editing.id);
       if (error) throw error;
+      if (wasActive && !willBeActive) { if (regularOld) await releaseSlot(editing.slotId, editing.date, editing.time); }
+      else if (moved && wasActive) await releaseSlot(editing.slotId, editing.date, editing.time);
+      else if (moved && !wasActive && !regularOld) await releaseSlot(editing.slotId, editing.date, editing.time);
       if (moved) {
-        await releaseSlot(editing.slotId, editing.date, editing.time);
         if (confirm('Η ημερομηνία/ώρα άλλαξε. Να σταλεί SMS ενημέρωσης στον ασθενή;')) sendSms(phone, name, date, time);
       }
     }
@@ -564,11 +633,12 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
 
 document.getElementById('delete-btn').addEventListener('click', async () => {
   if (!editing) return;
-  if (!confirm('Σίγουρα θέλεις να ακυρώσεις αυτό το ραντεβού; Η ώρα θα ξαναγίνει διαθέσιμη.')) return;
+  if (!confirm('Οριστική διαγραφή αυτού του ραντεβού; (Για απλή ακύρωση, άλλαξε την Κατάσταση σε «Ακυρωμένο».)')) return;
   const b = editing;
   const { error } = await supa.from('bookings').delete().eq('id', b.id);
   if (error) { console.error(error); setMsg('Σφάλμα κατά την ακύρωση.'); return; }
-  await releaseSlot(b.slotId, b.date, b.time);
+  if (b.status !== 'cancelled') await releaseSlot(b.slotId, b.date, b.time);
+  else if (!isRegularSlot(b.date, b.time)) await releaseSlot(b.slotId, b.date, b.time);
   closeModal();
   await loadBookings();
 });
