@@ -357,7 +357,7 @@ let anchor = new Date(); anchor.setHours(0,0,0,0);
 let editing = null;  // booking being edited, or null for a new one
 
 // ---------- status colours ----------
-const DEFAULT_COLORS = { new:'#E07A2C', completed:'#CFE3D0', cancelled:'#2B2B2B' };
+const DEFAULT_COLORS = { new:'#F7CFA8', completed:'#CFE3D0', cancelled:'#2B2B2B' };
 let colors = {...DEFAULT_COLORS};
 try { Object.assign(colors, JSON.parse(localStorage.getItem('sr_colors') || '{}')); } catch(e){}
 function textOn(hex){
