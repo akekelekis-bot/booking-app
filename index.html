@@ -561,7 +561,7 @@ async function loadAvailability(){
   try {
     const { data, error } = await supa
       .from('availability')
-      .select('id, slot_date, slot_time, is_booked')
+      .select('*')
       .eq('is_booked', false)
       .gte('slot_date', new Date().toISOString().slice(0,10))
       .order('slot_date', { ascending: true })
@@ -569,7 +569,7 @@ async function loadAvailability(){
 
     if (error) throw error;
 
-    availability = data || [];
+    availability = (data || []).filter(r => r.category !== 'gym');
     slotsByDate = {};
     availability.forEach(row => {
       if (!slotsByDate[row.slot_date]) slotsByDate[row.slot_date] = [];

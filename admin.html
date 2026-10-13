@@ -162,8 +162,24 @@
     padding:6px 8px;
     text-align:right;
   }
-  .cell{min-height:92px; padding:4px; cursor:pointer;}
-  .cell:hover{background:#FBF8F1;}
+  .cell{min-height:20px; padding:1px 3px; cursor:pointer; overflow:hidden;}
+  .tgrid.fit{height:calc(100vh - 235px); min-height:420px;}
+  .tgrid.fit .th{padding:4px 2px;}
+  .th.sub{padding:2px 2px !important; font-size:11px; font-weight:600; color:#1A1714;}
+  .th.sub.physio{background:var(--cat-physio);} .th.sub.gym{background:var(--cat-gym);}
+  .cell.physio{background:color-mix(in srgb, var(--cat-physio) 28%, #fff);}
+  .cell.gym{background:color-mix(in srgb, var(--cat-gym) 28%, #fff);}
+  .cell.weekend.physio{background:color-mix(in srgb, var(--cat-physio) 38%, #fff);}
+  .cell.weekend.gym{background:color-mix(in srgb, var(--cat-gym) 38%, #fff);}
+  .cell.halfrow{border-bottom-style:dotted;}
+  .hr.half{color:#9a928a; font-size:10px;}
+  .cell:hover{filter:brightness(.96);}
+  .tgrid.fit .appt{border-left:3px solid var(--cat, rgba(0,0,0,.35));}
+  .cell.physio .appt{border-left-color:color-mix(in srgb, var(--cat-physio) 70%, #000);} .cell.gym .appt{border-left-color:color-mix(in srgb, var(--cat-gym) 70%, #000);}
+  .tgrid.fit .hr{padding:3px 6px;}
+  .tgrid.fit .appt{padding:1px 5px; margin-bottom:1px; display:flex; gap:6px; align-items:baseline; white-space:nowrap; overflow:hidden; font-size:11.5px; line-height:1.35;}
+  .tgrid.fit .appt b{display:inline; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0;}
+  .tgrid.fit .appt span{display:inline; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1 1 0; min-width:0; font-size:10.5px;}
   .cell.weekend{background:#FAF8F3;}
   .appt{
     display:block;
@@ -173,11 +189,11 @@
     border:none;
     border-left:3px solid var(--orange);
     border-radius:3px;
-    padding:5px 7px;
-    margin-bottom:3px;
+    padding:2px 6px;
+    margin-bottom:2px;
     font-family:'Inter',sans-serif;
     font-size:12px;
-    line-height:1.3;
+    line-height:1.2;
     color:var(--ink);
     cursor:pointer;
   }
@@ -300,6 +316,8 @@
     <label><input type="color" id="col-new"> Νέο</label>
     <label><input type="color" id="col-completed"> Ολοκληρωμένο</label>
     <label><input type="color" id="col-cancelled"> Ακυρωμένο</label>
+    <label><input type="color" id="col-physio"> Φυσιοθεραπεία</label>
+    <label><input type="color" id="col-gym"> Γυμναστήριο</label>
     <button type="button" id="col-reset">Επαναφορά</button>
   </div>
 
@@ -314,10 +332,13 @@
     <form id="appt-form">
       <div class="row">
         <div class="field"><label>Ημερομηνία</label><input type="date" id="f-date" required></div>
-        <div class="field"><label>Ώρα</label><input type="time" id="f-time" required></div>
+        <div class="field"><label>Ώρα</label><input type="time" id="f-time" step="1800" required></div>
       </div>
       <div class="field"><label>Ονοματεπώνυμο</label><input type="text" id="f-name" required></div>
       <div class="field"><label>Τηλέφωνο</label><input type="tel" id="f-phone" required></div>
+      <div class="field"><label>Τμήμα</label>
+        <select id="f-cat"><option value="physio">Φυσιοθεραπεία</option><option value="gym">Γυμναστήριο</option></select>
+      </div>
       <div class="field"><label>Κατάσταση</label>
         <select id="f-status">
           <option value="new">Νέο</option>
@@ -362,7 +383,7 @@ let anchor = new Date(); anchor.setHours(0,0,0,0);
 let editing = null;  // booking being edited, or null for a new one
 
 // ---------- status colours ----------
-const DEFAULT_COLORS = { new:'#F7CFA8', completed:'#CFE3D0', cancelled:'#2B2B2B' };
+const DEFAULT_COLORS = { new:'#F7CFA8', completed:'#CFE3D0', cancelled:'#2B2B2B', physio:'#BCD6EC', gym:'#D8C6EE' };
 let colors = {...DEFAULT_COLORS};
 try { Object.assign(colors, JSON.parse(localStorage.getItem('sr_colors') || '{}')); } catch(e){}
 function textOn(hex){
@@ -372,12 +393,12 @@ function textOn(hex){
 function applyColors(){
   const st = document.documentElement.style;
   for (const k of Object.keys(DEFAULT_COLORS)) {
-    st.setProperty('--bg-'+k, colors[k]); st.setProperty('--fg-'+k, textOn(colors[k]));
+    st.setProperty('--bg-'+k, colors[k]); st.setProperty('--fg-'+k, textOn(colors[k])); st.setProperty('--cat-'+k, colors[k]);
     const inp = document.getElementById('col-'+k); if (inp) inp.value = colors[k];
   }
 }
 function saveColors(){ try { localStorage.setItem('sr_colors', JSON.stringify(colors)); } catch(e){} }
-['new','completed','cancelled'].forEach(k => document.getElementById('col-'+k).addEventListener('input', e => { colors[k] = e.target.value; saveColors(); applyColors(); }));
+['new','completed','cancelled','physio','gym'].forEach(k => document.getElementById('col-'+k).addEventListener('input', e => { colors[k] = e.target.value; saveColors(); applyColors(); }));
 document.getElementById('col-reset').addEventListener('click', () => { colors = {...DEFAULT_COLORS}; saveColors(); applyColors(); });
 applyColors();
 
@@ -414,12 +435,14 @@ function showDashboard(){
 async function loadBookings(){
   const view = document.getElementById('view');
   view.innerHTML = '<div style="padding:40px;text-align:center;color:var(--ink-soft)">Φόρτωση…</div>';
-  let { data, error } = await supa
-    .from('bookings')
-    .select('id, full_name, phone, reason, status, availability:slot_id ( id, slot_date, slot_time )');
-  if (error) {   // status column not created yet -> load without it
-    ({ data, error } = await supa.from('bookings')
-      .select('id, full_name, phone, reason, availability:slot_id ( id, slot_date, slot_time )'));
+  let data, error;
+  for (const sel of [
+    'id, full_name, phone, reason, status, availability:slot_id ( id, slot_date, slot_time, category )',
+    'id, full_name, phone, reason, status, availability:slot_id ( id, slot_date, slot_time )',
+    'id, full_name, phone, reason, availability:slot_id ( id, slot_date, slot_time )'
+  ]) {
+    ({ data, error } = await supa.from('bookings').select(sel));
+    if (!error) break;
   }
   if (error) {
     console.error(error);
@@ -434,7 +457,8 @@ async function loadBookings(){
     name: b.full_name,
     phone: b.phone,
     reason: b.reason || '',
-    status: b.status || 'new'
+    status: b.status || 'new',
+    cat: b.availability.category === 'gym' ? 'gym' : 'physio'
   }));
   render();
 }
@@ -458,26 +482,33 @@ function renderTimetable(days){
 
   const keys = days.map(ymd);
   const inRange = bookings.filter(b => keys.includes(b.date));
-  let first = 9, last = 21;
-  inRange.forEach(b => { const h = parseInt(b.time.slice(0,2),10); first = Math.min(first,h); last = Math.max(last,h); });
+  const bucket = t => { const [h,m] = t.split(':').map(Number); return h*60 + (m>=30?30:0); };
+  let first = 9*60, last = 20*60;
+  inRange.forEach(b => { const k = bucket(b.time); first = Math.min(first,k); last = Math.max(last,k); });
+  const nRows = (last-first)/30 + 1;
 
   const todayKey = ymd(new Date());
-  const colMin = days.length === 1 ? 360 : 120;
-  let html = `<div class="grid-wrap"><div class="tgrid" style="grid-template-columns:70px repeat(${days.length}, minmax(${colMin}px, 1fr)); min-width:${70 + days.length*colMin}px">`;
-  html += '<div class="th corner"></div>';
+  const colMin = days.length === 1 ? 200 : 60;
+  const CATS = [['physio','Φυσιο'],['gym','Γυμ']];
+  let html = `<div class="grid-wrap"><div class="tgrid fit" style="grid-template-columns:62px repeat(${days.length*2}, minmax(${colMin}px, 1fr)); grid-template-rows:auto auto repeat(${nRows}, minmax(min-content, 1fr)); min-width:${62 + days.length*2*colMin}px">`;
+  html += '<div class="th corner" style="grid-row:span 2"></div>';
   days.forEach(d => {
-    html += `<div class="th${ymd(d)===todayKey?' today':''}">${DAYS_SHORT[dowMon(d)]}<small>${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</small></div>`;
+    html += `<div class="th${ymd(d)===todayKey?' today':''}" style="grid-column:span 2">${DAYS_SHORT[dowMon(d)]} <small style="display:inline">${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</small></div>`;
   });
-  for (let h = first; h <= last; h++) {
-    html += `<div class="hr">${pad(h)}:00</div>`;
+  days.forEach(() => CATS.forEach(([c,l]) => { html += `<div class="th sub ${c}">${l}</div>`; }));
+  for (let k = first; k <= last; k += 30) {
+    const hh = pad(Math.floor(k/60)), mm = pad(k%60);
+    html += `<div class="hr${k%60?' half':''}">${hh}:${mm}</div>`;
     days.forEach(d => {
       const key = ymd(d);
-      const items = inRange
-        .filter(b => b.date === key && parseInt(b.time.slice(0,2),10) === h)
-        .sort((a,b) => a.time.localeCompare(b.time));
-      html += `<div class="cell${dowMon(d)>=5?' weekend':''}" data-date="${key}" data-hour="${h}">` +
-        items.map(b => `<button class="appt ${b.status}" data-id="${b.id}"><b>✏️ ${b.time} ${escapeHtml(b.name)}</b><span>${escapeHtml(b.phone)}${b.reason ? ' · ' + escapeHtml(b.reason) : ''}</span></button>`).join('') +
-        '</div>';
+      CATS.forEach(([c]) => {
+        const items = inRange
+          .filter(b => b.date === key && b.cat === c && bucket(b.time) === k)
+          .sort((a,b) => a.time.localeCompare(b.time));
+        html += `<div class="cell ${c}${dowMon(d)>=5?' weekend':''}${k%60?' halfrow':''}" data-date="${key}" data-time="${hh}:${mm}" data-cat="${c}">` +
+          items.map(b => `<button class="appt ${b.status}" data-id="${b.id}" title="${escapeHtml(b.time+' '+b.name+' '+b.phone+(b.reason?' · '+b.reason:''))}"><b>${b.time===hh+':'+mm?'':b.time+' '}${escapeHtml(b.name)}</b><span>${escapeHtml(b.phone)}${b.reason ? ' · ' + escapeHtml(b.reason) : ''}</span></button>`).join('') +
+          '</div>';
+      });
     });
   }
   html += '</div></div>';
@@ -514,7 +545,7 @@ searchEl.addEventListener('input', () => {
     .sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time)).slice(0, 40);
   resEl.innerHTML = hits.length ? hits.map(b => {
     const d = parseYmd(b.date);
-    return `<button data-id="${b.id}"><span class="dot" style="background:${colors[b.status]}"></span><span><b>${escapeHtml(b.name)}</b> <small>${escapeHtml(b.phone)}</small><br><small>${DAYS_SHORT[dowMon(d)]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()} · ${b.time} · ${STATUS_LABEL[b.status]}${b.reason ? ' · ' + escapeHtml(b.reason) : ''}</small></span></button>`;
+    return `<button data-id="${b.id}"><span class="dot" style="background:${colors[b.status]}"></span><span class="dot" style="background:${colors[b.cat]}" title="${b.cat==='gym'?'Γυμναστήριο':'Φυσιοθεραπεία'}"></span><span><b>${escapeHtml(b.name)}</b> <small>${escapeHtml(b.phone)}</small><br><small>${DAYS_SHORT[dowMon(d)]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()} · ${b.time} · ${STATUS_LABEL[b.status]}${b.reason ? ' · ' + escapeHtml(b.reason) : ''}</small></span></button>`;
   }).join('') : '<div class="none">Δεν βρέθηκε κανένα ραντεβού.</div>';
   resEl.style.display = 'block';
 });
@@ -546,7 +577,7 @@ document.getElementById('view').addEventListener('click', e => {
   const appt = e.target.closest('.appt');
   if (appt) { openModal(bookings.find(b => b.id === appt.dataset.id)); return; }
   const cell = e.target.closest('.cell');
-  if (cell) { openModal(null, cell.dataset.date, pad(cell.dataset.hour) + ':00'); return; }
+  if (cell) { openModal(null, cell.dataset.date, cell.dataset.time, cell.dataset.cat); return; }
   const day = e.target.closest('.day.in');
   if (day) { anchor = parseYmd(day.dataset.date); mode = 'day'; render(); }
 });
@@ -554,7 +585,7 @@ document.getElementById('new-btn').addEventListener('click', () => openModal(nul
 
 // ---------- modal ----------
 const modal = document.getElementById('modal');
-function openModal(b, date, time){
+function openModal(b, date, time, cat){
   editing = b;
   document.getElementById('modal-title').textContent = b ? 'Επεξεργασία ραντεβού' : 'Νέο ραντεβού';
   document.getElementById('f-date').value = b ? b.date : (date || '');
@@ -563,6 +594,7 @@ function openModal(b, date, time){
   document.getElementById('f-phone').value = b ? b.phone : '';
   document.getElementById('f-reason').value = b ? b.reason : '';
   document.getElementById('f-status').value = b ? b.status : 'new';
+  document.getElementById('f-cat').value = b ? b.cat : (cat || 'physio');
   syncLock();
   document.getElementById('delete-btn').style.display = b ? '' : 'none';
   setMsg('');
@@ -573,6 +605,8 @@ function syncLock(){
   const lock = !!editing && document.getElementById('f-status').value === 'cancelled';
   if (lock) { document.getElementById('f-date').value = editing.date; document.getElementById('f-time').value = editing.time; }
   document.getElementById('f-date').disabled = lock; document.getElementById('f-time').disabled = lock;
+  document.getElementById('f-cat').disabled = lock;
+  if (lock) document.getElementById('f-cat').value = editing.cat;
 }
 document.getElementById('f-status').addEventListener('change', syncLock);
 function closeModal(){ modal.style.display = 'none'; editing = null; }
@@ -582,15 +616,18 @@ modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 
 // ---------- slot helpers ----------
 // Normal bookable slots: Mon–Fri, on the hour, 09:00–20:00. Anything else is a one-off slot created by hand.
-function isRegularSlot(date, time){
+function isRegularSlot(date, time, cat){
+  if (cat === 'gym') return true;   // gym rows are hidden from the public and simply freed on cancel
   const d = parseYmd(date);
   const [h, m] = time.split(':').map(Number);
   return dowMon(d) < 5 && m === 0 && h >= 9 && h <= 20;
 }
 // Returns a slot id that is now marked booked, or null if someone else already holds that time.
-async function claimSlot(date, time, keepSlotId){
-  const { data: existing } = await supa.from('availability').select('id, is_booked')
-    .eq('slot_date', date).eq('slot_time', time + ':00').maybeSingle();
+async function claimSlot(date, time, keepSlotId, cat){
+  cat = cat || 'physio';
+  let q = supa.from('availability').select('id, is_booked').eq('slot_date', date).eq('slot_time', time + ':00');
+  if (cat === 'gym') q = q.eq('category', 'gym'); else q = q.neq('category', 'gym');
+  const { data: existing } = await q.maybeSingle();
   if (existing) {
     if (existing.id === keepSlotId) return existing.id;
     if (existing.is_booked) return null;
@@ -600,14 +637,14 @@ async function claimSlot(date, time, keepSlotId){
     return upd && upd.length ? existing.id : null;
   }
   const { data: created, error } = await supa.from('availability')
-    .insert({ slot_date: date, slot_time: time + ':00', is_booked: true }).select().single();
+    .insert(cat === 'gym' ? { slot_date: date, slot_time: time + ':00', is_booked: true, category: 'gym' } : { slot_date: date, slot_time: time + ':00', is_booked: true }).select().single();
   if (error) throw error;
   return created.id;
 }
 // Frees a slot after a cancel/move. Regular slots become bookable again; one-off slots are removed
 // so they never show up as public availability.
-async function releaseSlot(slotId, date, time){
-  if (isRegularSlot(date, time)) await supa.from('availability').update({ is_booked: false }).eq('id', slotId);
+async function releaseSlot(slotId, date, time, cat){
+  if (isRegularSlot(date, time, cat)) await supa.from('availability').update({ is_booked: false }).eq('id', slotId);
   else await supa.from('availability').delete().eq('id', slotId);
 }
 
@@ -625,13 +662,14 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
   const name = document.getElementById('f-name').value.trim();
   const phone = document.getElementById('f-phone').value.trim();
   const reason = document.getElementById('f-reason').value.trim();
+  const cat = document.getElementById('f-cat').value;
   if (!date || !time || !name || !phone) { setMsg('Συμπλήρωσε ημερομηνία, ώρα, όνομα και τηλέφωνο.'); return; }
 
   const btn = document.getElementById('save-btn');
   btn.disabled = true; btn.textContent = 'Αποθήκευση…'; setMsg('');
   try {
     if (!editing) {
-      const slotId = await claimSlot(date, time, null);
+      const slotId = await claimSlot(date, time, null, cat);
       if (!slotId) { setMsg('Αυτή η ώρα είναι ήδη κλεισμένη.'); return; }
       const { error } = await supa.from('bookings').insert({ slot_id: slotId, full_name: name, phone, reason, language: 'el' });
       if (error) throw error;
@@ -639,25 +677,25 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
     } else {
       const status = document.getElementById('f-status').value;
       const wasActive = editing.status !== 'cancelled', willBeActive = status !== 'cancelled';
-      const regularOld = isRegularSlot(editing.date, editing.time);
+      const regularOld = isRegularSlot(editing.date, editing.time, editing.cat);
       let slotId = editing.slotId, moved = false;
       if (wasActive && willBeActive) {
-        moved = date !== editing.date || time !== editing.time;
+        moved = date !== editing.date || time !== editing.time || cat !== editing.cat;
         if (moved) {
-          slotId = await claimSlot(date, time, editing.slotId);
+          slotId = await claimSlot(date, time, cat === editing.cat ? editing.slotId : null, cat);
           if (!slotId) { setMsg('Αυτή η ώρα είναι ήδη κλεισμένη.'); return; }
         }
       } else if (!wasActive && willBeActive) {          // un-cancel: take a slot again
-        slotId = await claimSlot(date, time, regularOld ? null : editing.slotId);
+        slotId = await claimSlot(date, time, regularOld ? null : editing.slotId, cat);
         if (!slotId) { setMsg('Αυτή η ώρα είναι ήδη κλεισμένη.'); return; }
-        moved = date !== editing.date || time !== editing.time;
+        moved = date !== editing.date || time !== editing.time || cat !== editing.cat;
       }
       const upd = { slot_id: slotId, full_name: name, phone, reason, status };
       let { error } = await supa.from('bookings').update(upd).eq('id', editing.id);
       if (error) throw error;
-      if (wasActive && !willBeActive) { if (regularOld) await releaseSlot(editing.slotId, editing.date, editing.time); }
-      else if (moved && wasActive) await releaseSlot(editing.slotId, editing.date, editing.time);
-      else if (moved && !wasActive && !regularOld) await releaseSlot(editing.slotId, editing.date, editing.time);
+      if (wasActive && !willBeActive) { if (regularOld) await releaseSlot(editing.slotId, editing.date, editing.time, editing.cat); }
+      else if (moved && wasActive) await releaseSlot(editing.slotId, editing.date, editing.time, editing.cat);
+      else if (moved && !wasActive && !regularOld) await releaseSlot(editing.slotId, editing.date, editing.time, editing.cat);
       if (moved) {
         if (confirm('Η ημερομηνία/ώρα άλλαξε. Να σταλεί SMS ενημέρωσης στον ασθενή;')) sendSms(phone, name, date, time);
       }
@@ -679,8 +717,8 @@ document.getElementById('delete-btn').addEventListener('click', async () => {
   const b = editing;
   const { error } = await supa.from('bookings').delete().eq('id', b.id);
   if (error) { console.error(error); setMsg('Σφάλμα κατά την ακύρωση.'); return; }
-  if (b.status !== 'cancelled') await releaseSlot(b.slotId, b.date, b.time);
-  else if (!isRegularSlot(b.date, b.time)) await releaseSlot(b.slotId, b.date, b.time);
+  if (b.status !== 'cancelled') await releaseSlot(b.slotId, b.date, b.time, b.cat);
+  else if (!isRegularSlot(b.date, b.time, b.cat)) await releaseSlot(b.slotId, b.date, b.time, b.cat);
   closeModal();
   await loadBookings();
 });
