@@ -380,6 +380,31 @@
   .card.new{ --bg:var(--bg-new); --fg:var(--fg-new); }
   .card.completed{ --bg:var(--bg-completed); --fg:var(--fg-completed); }
   .card.cancelled{ --bg:var(--bg-cancelled); --fg:var(--fg-cancelled); }
+
+  /* finance (hidden area) */
+  .lockbtn{ background:none; border:none; color:#fff; opacity:.28; font-size:15px; padding:6px 10px; margin-bottom:6px; cursor:pointer; border-radius:999px; }
+  .lockbtn:hover{ opacity:.8; background:rgba(255,255,255,.1); }
+  .fin-top{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:16px; }
+  .fin-card{ background:#F3F3F3; border-radius:22px; padding:16px 20px; }
+  .fin-card.dark{ background:#111; color:#fff; }
+  .fin-card .k{ font-size:12px; opacity:.7; margin-bottom:4px; }
+  .fin-card .v{ font-size:28px; font-weight:700; letter-spacing:-.02em; }
+  .fin-card .s{ font-size:12px; opacity:.7; margin-top:4px; line-height:1.5; }
+  .fin-tools{ display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin:0 0 12px; font-size:13px; color:var(--ink-soft); }
+  .fin-tools input[type=text]{ border:1px solid var(--rule); border-radius:999px; padding:6px 12px; font-family:inherit; }
+  .fin-tools input[type=number]{ width:72px; border:1px solid var(--rule); border-radius:999px; padding:6px 10px; font-family:inherit; }
+  .fin-tools button{ background:#EEF1F7; border:none; border-radius:999px; padding:7px 14px; font-family:inherit; font-size:13px; }
+  .fin-table{ width:100%; border-collapse:separate; border-spacing:0 6px; font-size:14px; }
+  .fin-table th{ text-align:left; font-weight:600; font-size:12px; color:var(--ink-soft); padding:0 10px 2px; }
+  .fin-table td{ background:#F7F7F7; padding:8px 10px; }
+  .fin-table td:first-child{ border-radius:999px 0 0 999px; padding-left:16px; }
+  .fin-table td:last-child{ border-radius:0 999px 999px 0; padding-right:16px; }
+  .fin-table tr.paid td{ background:#E4F1E6; }
+  .fin-table input[type=number], .fin-table select{ border:1px solid var(--rule); background:#fff; border-radius:999px; padding:5px 10px; font-family:inherit; font-size:13px; width:90px; }
+  .fin-table select{ width:110px; }
+  .fin-table input[type=checkbox]{ width:18px; height:18px; accent-color:#111; }
+  .fin-empty{ padding:30px; text-align:center; color:var(--ink-soft); }
+  .fin-err{ background:#FDECEC; color:#8A1F1F; border-radius:22px; padding:16px 20px; }
 </style>
 </head>
 <body>
@@ -426,7 +451,7 @@
       <label><input type="color" id="col-cancelled"> Ακυρωμένο</label>
       <button type="button" id="col-reset">Επαναφορά χρωμάτων</button>
     </div>
-    <div class="side-foot"><button class="btn ghost" id="logout-btn">Αποσύνδεση</button></div>
+    <div class="side-foot"><button class="lockbtn" id="fin-btn" title="Οικονομικά" aria-label="Οικονομικά">&#128274;</button><button class="btn ghost" id="logout-btn">Αποσύνδεση</button></div>
   </aside>
   <main class="main">
     <div class="toolbar">
@@ -619,6 +644,7 @@ function renderCards(days){
   document.getElementById('view').innerHTML = html;
 }
 function render(){
+  if (financeOn) { renderFinance(); return; }
   document.querySelectorAll('#mode-seg button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
   document.querySelectorAll('#vt-seg button').forEach(b => b.classList.toggle('active', b.dataset.vt === viewType));
   if (mode === 'month') renderMonth();
@@ -717,7 +743,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.search')) resE
 // ---------- navigation ----------
 document.getElementById('mode-seg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  mode = b.dataset.mode; render();
+  financeOn = false; mode = b.dataset.mode; render();
 });
 function step(dir){
   if (mode === 'day') anchor = addDays(anchor, dir);
@@ -748,7 +774,7 @@ document.getElementById('view').addEventListener('click', e => {
 });
 document.getElementById('vt-seg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  viewType = b.dataset.vt; try { localStorage.setItem('sr_vt', viewType); } catch(_){}
+  financeOn = false; viewType = b.dataset.vt; try { localStorage.setItem('sr_vt', viewType); } catch(_){}
   if (mode === 'month') mode = 'week';
   render();
 });
@@ -892,6 +918,117 @@ document.getElementById('delete-btn').addEventListener('click', async () => {
   else if (!isRegularSlot(b.date, b.time, b.cat)) await releaseSlot(b.slotId, b.date, b.time, b.cat);
   closeModal();
   await loadBookings();
+});
+
+
+// ---------- finance (hidden, PIN-locked) ----------
+let financeOn = false, finUnlocked = false, payments = {}, finLoadError = false;
+const METHODS = { cash:'Μετρητά', card:'Κάρτα', bank:'Τράπεζα' };
+let priceList = { physio:[50,30,25], gym:[80,160,240] };
+try { const pl = JSON.parse(localStorage.getItem('sr_pricelist') || 'null'); if (pl && pl.physio && pl.gym) priceList = pl; } catch(e){}
+const customRows = new Set();
+async function sha(t){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('sr:' + t)); return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2,'0')).join(''); }
+async function askPin(){
+  let stored = null; try { stored = localStorage.getItem('sr_pin'); } catch(e){}
+  if (!stored) {
+    const a = prompt('Όρισε PIN για τα Οικονομικά (τουλάχιστον 4 ψηφία):'); if (!a) return false;
+    if (a.length < 4) { alert('Το PIN πρέπει να έχει τουλάχιστον 4 ψηφία.'); return false; }
+    const b = prompt('Ξαναγράψε το PIN:'); if (a !== b) { alert('Τα PIN δεν ταιριάζουν.'); return false; }
+    try { localStorage.setItem('sr_pin', await sha(a)); } catch(e){}
+    return true;
+  }
+  const a = prompt('PIN:'); if (!a) return false;
+  if (await sha(a) === stored) return true;
+  alert('Λάθος PIN.'); return false;
+}
+async function openFinance(){
+  if (!finUnlocked) { if (!await askPin()) return; finUnlocked = true; }
+  financeOn = true; mode = 'month'; anchor = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  document.querySelectorAll('#mode-seg button').forEach(b => b.classList.remove('active'));
+  await loadPayments(); render();
+}
+function closeFinance(){ financeOn = false; if (mode === 'month') mode = 'week'; render(); }
+async function loadPayments(){
+  const { data, error } = await supa.from('payments').select('*');
+  finLoadError = !!error; payments = {};
+  (data || []).forEach(r => { payments[r.booking_id] = r; });
+}
+const money = n => (Math.round(n * 100) / 100).toLocaleString('el-GR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €';
+function amountCell(b, p){
+  const list = priceList[b.cat] || [], amt = +p.amount || 0;
+  if (customRows.has(b.id) || (amt && !list.includes(amt))) return `<input type="number" min="0" step="0.5" data-f="amount" value="${amt || ''}" placeholder="€" ${customRows.has(b.id) ? 'autofocus' : ''}>`;
+  return `<select data-f="amountsel"><option value="">—</option>${list.map(v => `<option value="${v}"${amt===v?' selected':''}>${v} €</option>`).join('')}<option value="other">Άλλο…</option></select>`;
+}
+function renderFinance(){
+  const y = anchor.getFullYear(), m = anchor.getMonth();
+  document.getElementById('range-label').textContent = MONTHS[m] + ' ' + y + ' — Οικονομικά';
+  const view = document.getElementById('view');
+  if (finLoadError) { view.innerHTML = '<div class="fin-err">Ο πίνακας οικονομικών δεν υπάρχει ακόμα. Τρέξε το αρχείο <b>admin-finance.sql</b> στο Supabase (SQL Editor) και ξαναφόρτωσε τη σελίδα.</div>'; return; }
+  const prefix = y + '-' + pad(m+1);
+  const rows = bookings.filter(b => b.date.startsWith(prefix) && b.status !== 'cancelled').sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const pay = id => payments[id] || { amount:0, paid:false, method:null, receipt:false };
+  let paidSum = 0, unpaidSum = 0, unpaidN = 0; const byCat = { physio:0, gym:0 }, byMethod = { cash:0, card:0, bank:0 };
+  rows.forEach(b => { const p = pay(b.id); if (p.paid) { paidSum += +p.amount; byCat[b.cat] += +p.amount; if (p.method) byMethod[p.method] += +p.amount; } else { unpaidN++; unpaidSum += +p.amount; } });
+  let html = `<div class="fin-top">
+    <div class="fin-card dark"><div class="k">Εισπράξεις μήνα</div><div class="v">${money(paidSum)}</div><div class="s">${rows.length - unpaidN} από ${rows.length} ραντεβού πληρωμένα</div></div>
+    <div class="fin-card"><div class="k">Απλήρωτα</div><div class="v">${unpaidN}</div><div class="s">${unpaidSum ? 'Αναμενόμενο: ' + money(unpaidSum) : ' '}</div></div>
+    <div class="fin-card"><div class="k">Ανά τμήμα</div><div class="s">Φυσιοθεραπεία: <b>${money(byCat.physio)}</b><br>Γυμναστήριο: <b>${money(byCat.gym)}</b></div></div>
+    <div class="fin-card"><div class="k">Ανά τρόπο πληρωμής</div><div class="s">Μετρητά: <b>${money(byMethod.cash)}</b><br>Κάρτα: <b>${money(byMethod.card)}</b><br>Τράπεζα: <b>${money(byMethod.bank)}</b></div></div>
+  </div>
+  <div class="fin-tools"><span>Τιμοκατάλογος (€):</span>
+    <label>Φυσιοθεραπεία <input type="text" id="pl-physio" value="${priceList.physio.join(' / ')}" style="width:130px"></label>
+    <label>Γυμναστήριο <input type="text" id="pl-gym" value="${priceList.gym.join(' / ')}" style="width:150px"></label>
+    <button id="pin-change">Αλλαγή PIN</button><button id="fin-lock">Κλείδωμα</button></div>`;
+  if (!rows.length) html += '<div class="fin-empty">Δεν υπάρχουν ραντεβού αυτόν τον μήνα.</div>';
+  else {
+    html += '<table class="fin-table"><thead><tr><th>Ημ/νία</th><th>Ώρα</th><th>Ονοματεπώνυμο</th><th>Τμήμα</th><th>Ποσό</th><th>Τρόπος</th><th>Πληρώθηκε</th><th>Απόδειξη</th></tr></thead><tbody>';
+    rows.forEach(b => {
+      const p = pay(b.id), d = parseYmd(b.date);
+      html += `<tr class="${p.paid ? 'paid' : ''}" data-id="${b.id}">
+        <td>${DAYS_SHORT[dowMon(d)]} ${d.getDate()}/${m+1}</td><td>${b.time}</td><td><b>${escapeHtml(b.name)}</b></td><td>${b.cat === 'gym' ? 'Γυμναστήριο' : 'Φυσιοθεραπεία'}</td>
+        <td>${amountCell(b, p)}</td>
+        <td><select data-f="method"><option value="">—</option>${Object.entries(METHODS).map(([k,v]) => `<option value="${k}"${p.method===k?' selected':''}>${v}</option>`).join('')}</select></td>
+        <td><input type="checkbox" data-f="paid"${p.paid?' checked':''}></td>
+        <td><input type="checkbox" data-f="receipt"${p.receipt?' checked':''}></td></tr>`;
+    });
+    html += '</tbody></table>';
+  }
+  view.innerHTML = html;
+}
+async function savePayment(id, patch){
+  const cur = payments[id] || { booking_id:id, amount:0, paid:false, method:null, receipt:false };
+  const next = { ...cur, ...patch, booking_id:id, updated_at:new Date().toISOString() };
+  if (patch.paid === true && !cur.paid) next.paid_at = new Date().toISOString();
+  payments[id] = next;
+  const { error } = await supa.from('payments').upsert({ booking_id:id, amount:+next.amount || 0, paid:!!next.paid, method:next.method || null, receipt:!!next.receipt, paid_at:next.paid_at || null, updated_at:next.updated_at }, { onConflict:'booking_id' });
+  if (error) { console.error(error); alert('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); }
+}
+document.getElementById('fin-btn').addEventListener('click', openFinance);
+document.getElementById('view').addEventListener('change', async e => {
+  if (!financeOn) return;
+  const t = e.target;
+  if (t.id === 'pl-physio' || t.id === 'pl-gym') {
+    const arr = t.value.split(/[\/,;\s]+/).map(Number).filter(n => n > 0);
+    if (arr.length) priceList[t.id.slice(3)] = arr;
+    try { localStorage.setItem('sr_pricelist', JSON.stringify(priceList)); } catch(_){}
+    renderFinance(); return;
+  }
+  const tr = t.closest('tr[data-id]'); if (!tr || !t.dataset.f) return;
+  const id = tr.dataset.id, b = bookings.find(x => x.id === id), f = t.dataset.f, patch = {};
+  if (f === 'amountsel') {
+    if (t.value === 'other') { customRows.add(id); renderFinance(); const inp = document.querySelector(`tr[data-id="${id}"] input[data-f=amount]`); if (inp) inp.focus(); return; }
+    patch.amount = +t.value || 0;
+  }
+  else if (f === 'amount') { patch.amount = +t.value || 0; customRows.delete(id); }
+  else if (f === 'method') patch.method = t.value || null;
+  else patch[f] = t.checked;
+  if (f === 'paid' && t.checked && !(+(payments[id]||{}).amount) && (priceList[b.cat]||[])[0]) patch.amount = priceList[b.cat][0];
+  await savePayment(id, patch); renderFinance();
+});
+document.getElementById('view').addEventListener('click', async e => {
+  if (!financeOn) return;
+  if (e.target.id === 'fin-lock') { finUnlocked = false; closeFinance(); }
+  if (e.target.id === 'pin-change') { try { localStorage.removeItem('sr_pin'); } catch(_){} finUnlocked = false; closeFinance(); alert('Το PIN διαγράφηκε. Την επόμενη φορά θα ορίσεις νέο.'); }
 });
 
 checkSession();
