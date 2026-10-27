@@ -460,6 +460,11 @@
   }
 
   @media (max-width:760px){ body{ padding-top:env(safe-area-inset-top) !important; } }
+  .pt-sug{position:absolute;left:0;right:0;top:100%;z-index:50;background:var(--surface,#fff);border:1px solid rgba(0,0,0,.15);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);max-height:260px;overflow:auto;margin-top:4px}
+  .pt-sug button{display:flex;justify-content:space-between;gap:12px;width:100%;text-align:left;border:0;background:none;padding:10px 14px;cursor:pointer;font:inherit;color:inherit;border-bottom:1px solid rgba(0,0,0,.06)}
+  .pt-sug button:last-child{border-bottom:0}
+  .pt-sug button:hover,.pt-sug button.on{background:rgba(0,0,0,.06)}
+  .pt-sug b{font-weight:600}.pt-sug small{opacity:.65;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -536,10 +541,14 @@
         <div class="field"><label>Ημερομηνία</label><input type="date" id="f-date" required></div>
         <div class="field"><label>Ώρα</label><input type="time" id="f-time" step="1800" required></div>
       </div>
-      <div class="field"><label>Ονοματεπώνυμο</label><input type="text" id="f-name" required></div>
-      <div class="field"><label>Τηλέφωνο</label><input type="tel" id="f-phone" required></div>
+      <div class="field" style="position:relative"><label>Ονοματεπώνυμο <span style="text-transform:none;letter-spacing:0;opacity:.7">· ψάξε υπάρχοντα ασθενή</span></label><input type="text" id="f-name" required autocomplete="off"><div id="pt-sug" class="pt-sug" style="display:none"></div></div>
+      <div class="field" style="position:relative"><label>Τηλέφωνο</label><input type="tel" id="f-phone" required autocomplete="off"><div id="pt-sug2" class="pt-sug" style="display:none"></div></div>
       <div class="field"><label>Τμήμα</label>
         <select id="f-cat"><option value="physio">Φυσιοθεραπεία</option><option value="gym">Γυμναστήριο</option></select>
+      </div>
+      <div class="field"><label>Θέσεις στο slot (άτομα)</label>
+        <select id="f-cap"><option value="1">1 άτομο</option><option value="2">2 άτομα</option><option value="3">3 άτομα</option><option value="4">4 άτομα</option></select>
+        <div id="slot-info" style="font-size:12px;color:var(--ink-soft);margin-top:6px"></div>
       </div>
       <div class="field"><label>Κατάσταση</label>
         <select id="f-status">
@@ -868,6 +877,8 @@ function openModal(b, date, time, cat){
   document.getElementById('f-status').value = b ? b.status : 'new';
   document.getElementById('f-cat').value = b ? b.cat : (cat || 'physio');
   syncLock();
+  document.getElementById('f-cap').value = String(cat === 'gym' || (b && b.cat === 'gym') ? 4 : 1);
+  refreshSlotInfo();
   document.getElementById('delete-btn').style.display = b ? '' : 'none';
   setMsg('');
   modal.style.display = 'flex';
@@ -894,31 +905,103 @@ function isRegularSlot(date, time, cat){
   const [h, m] = time.split(':').map(Number);
   return dowMon(d) < 5 && m === 0 && h >= 9 && h <= 20;
 }
-// Returns a slot id that is now marked booked, or null if someone else already holds that time.
-async function claimSlot(date, time, keepSlotId, cat){
-  cat = cat || 'physio';
-  let q = supa.from('availability').select('id, is_booked').eq('slot_date', date).eq('slot_time', time + ':00');
-  if (cat === 'gym') q = q.eq('category', 'gym'); else q = q.neq('category', 'gym');
-  const { data: existing } = await q.maybeSingle();
-  if (existing) {
-    if (existing.id === keepSlotId) return existing.id;
-    if (existing.is_booked) return null;
-    const { data: upd, error } = await supa.from('availability').update({ is_booked: true })
-      .eq('id', existing.id).eq('is_booked', false).select();
-    if (error) throw error;
-    return upd && upd.length ? existing.id : null;
+// Finds (or creates) the slot row for date/time/category and returns {id, cap, used}.
+// A slot can hold up to `cap` people; the database keeps is_booked in sync (full = true).
+function slotQuery(date, time, cat){
+  let q = supa.from('availability').select('*').eq('slot_date', date).eq('slot_time', time + ':00');
+  return cat === 'gym' ? q.eq('category', 'gym') : q.neq('category', 'gym');
+}
+async function slotInfo(date, time, cat, ignoreBookingId){
+  const { data: row } = await slotQuery(date, time, cat).maybeSingle();
+  const defCap = cat === 'gym' ? 4 : 1;
+  if (!row) return { id: null, cap: defCap, used: 0 };
+  const { data: bs } = await supa.from('bookings').select('id, status').eq('slot_id', row.id);
+  const used = (bs || []).filter(b => b.status !== 'cancelled' && b.id !== ignoreBookingId).length;
+  return { id: row.id, cap: row.capacity || 1, used };
+}
+// Returns a slot id with a free place (and capacity set to `cap`), or null if the slot is full.
+async function claimSlot(date, time, keepSlotId, cat, cap, ignoreBookingId){
+  cat = cat || 'physio'; cap = cap || (cat === 'gym' ? 4 : 1);
+  const info = await slotInfo(date, time, cat, ignoreBookingId);
+  if (info.id) {
+    if (info.id === keepSlotId) { if (info.cap !== cap) await supa.from('availability').update({ capacity: cap }).eq('id', info.id); return info.id; }
+    if (info.used >= Math.max(cap, 1)) return null;
+    if (info.cap !== cap) { const { error } = await supa.from('availability').update({ capacity: cap }).eq('id', info.id); if (error) throw error; }
+    return info.id;
   }
-  const { data: created, error } = await supa.from('availability')
-    .insert(cat === 'gym' ? { slot_date: date, slot_time: time + ':00', is_booked: true, category: 'gym' } : { slot_date: date, slot_time: time + ':00', is_booked: true }).select().single();
+  const row = { slot_date: date, slot_time: time + ':00', is_booked: false, capacity: cap };
+  if (cat === 'gym') row.category = 'gym';
+  const { data: created, error } = await supa.from('availability').insert(row).select().single();
   if (error) throw error;
   return created.id;
 }
-// Frees a slot after a cancel/move. Regular slots become bookable again; one-off slots are removed
+// After a cancel/move/delete: the database already recalculates "full". One-off slots with no bookings left are removed
 // so they never show up as public availability.
 async function releaseSlot(slotId, date, time, cat){
-  if (isRegularSlot(date, time, cat)) await supa.from('availability').update({ is_booked: false }).eq('id', slotId);
-  else await supa.from('availability').delete().eq('id', slotId);
+  if (isRegularSlot(date, time, cat)) return;
+  const { data: bs } = await supa.from('bookings').select('id').eq('slot_id', slotId).limit(1);
+  if (!bs || !bs.length) await supa.from('availability').delete().eq('id', slotId);
 }
+
+// ---------- slot info + patient search ----------
+async function refreshSlotInfo(){
+  const el = document.getElementById('slot-info'); if (!el) return;
+  const date = document.getElementById('f-date').value, time = document.getElementById('f-time').value, cat = document.getElementById('f-cat').value;
+  if (!date || !time) { el.textContent = ''; return; }
+  const my = ++refreshSlotInfo.n;
+  const info = await slotInfo(date, time, cat, editing ? editing.id : null);
+  if (my !== refreshSlotInfo.n) return;
+  if (info.id) document.getElementById('f-cap').value = String(info.cap);
+  el.textContent = info.used + ' / ' + info.cap + ' άτομα στο slot' + (info.used >= info.cap ? ' · πλήρες' : '');
+}
+refreshSlotInfo.n = 0;
+['f-date','f-time','f-cat'].forEach(id => document.getElementById(id).addEventListener('change', refreshSlotInfo));
+document.getElementById('f-cap').addEventListener('change', () => {
+  const m = /^(\d+)/.exec(document.getElementById('slot-info').textContent); const used = m ? +m[1] : 0;
+  document.getElementById('slot-info').textContent = used + ' / ' + document.getElementById('f-cap').value + ' άτομα στο slot';
+});
+
+const nrm = s => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ς/g, 'σ').replace(/\s+/g, ' ').trim();
+function patientList(){
+  const m = new Map();
+  bookings.slice().sort((x, y) => (y.date + y.time).localeCompare(x.date + x.time)).forEach(b => {
+    const key = nrm(b.phone).replace(/\D/g, '') || nrm(b.name);
+    if (!m.has(key)) m.set(key, { name: b.name, phone: b.phone, last: b.date, n: 0, n2: nrm(b.name), p2: (b.phone || '').replace(/\D/g, '') });
+    m.get(key).n++;
+  });
+  return Array.from(m.values());
+}
+function sugSearch(q, byPhone){
+  q = byPhone ? q.replace(/\D/g, '') : nrm(q);
+  if (q.length < (byPhone ? 3 : 2)) return [];
+  const toks = byPhone ? [q] : q.split(' ');
+  return patientList().filter(p => byPhone ? p.p2.includes(q) : toks.every(t => p.n2.includes(t)))
+    .sort((x, y) => (nrm(x.name).startsWith(q) ? 0 : 1) - (nrm(y.name).startsWith(q) ? 0 : 1)).slice(0, 8);
+}
+function showSug(boxId, list){
+  const box = document.getElementById(boxId);
+  if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.innerHTML = list.map((p, i) => `<button type="button" data-i="${i}"><span><b>${escapeHtml(p.name)}</b><br><small>${escapeHtml(p.phone)}</small></span><small>${p.n} ραντεβού · τελευταίο ${p.last.split('-').reverse().join('/')}</small></button>`).join('');
+  box.style.display = 'block'; box._list = list;
+}
+function pickPatient(p){
+  document.getElementById('f-name').value = p.name; document.getElementById('f-phone').value = p.phone;
+  ['pt-sug','pt-sug2'].forEach(i => { const b = document.getElementById(i); b.style.display = 'none'; b.innerHTML = ''; });
+  document.getElementById('f-reason').focus();
+}
+[['f-name','pt-sug',false],['f-phone','pt-sug2',true]].forEach(([inp, box, byPhone]) => {
+  const input = document.getElementById(inp), bx = document.getElementById(box);
+  input.addEventListener('input', () => { if (editing) return showSug(box, []); showSug(box, sugSearch(input.value, byPhone)); });
+  input.addEventListener('keydown', e => {
+    if (bx.style.display === 'none') return;
+    const items = Array.from(bx.querySelectorAll('button')); let k = items.findIndex(x => x.classList.contains('on'));
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items.forEach(x => x.classList.remove('on')); k = (k + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; items[k].classList.add('on'); }
+    else if (e.key === 'Enter' && k >= 0) { e.preventDefault(); pickPatient(bx._list[k]); }
+    else if (e.key === 'Escape') { bx.style.display = 'none'; }
+  });
+  bx.addEventListener('mousedown', e => { const b = e.target.closest('button'); if (b) { e.preventDefault(); pickPatient(bx._list[+b.dataset.i]); } });
+  input.addEventListener('blur', () => setTimeout(() => { bx.style.display = 'none'; }, 150));
+});
 
 function sendSms(phone, name, date, time){
   const d = parseYmd(date);
@@ -935,14 +1018,15 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
   const phone = document.getElementById('f-phone').value.trim();
   const reason = document.getElementById('f-reason').value.trim();
   const cat = document.getElementById('f-cat').value;
+  const cap = +document.getElementById('f-cap').value || 1;
   if (!date || !time || !name || !phone) { setMsg('Συμπλήρωσε ημερομηνία, ώρα, όνομα και τηλέφωνο.'); return; }
 
   const btn = document.getElementById('save-btn');
   btn.disabled = true; btn.textContent = 'Αποθήκευση…'; setMsg('');
   try {
     if (!editing) {
-      const slotId = await claimSlot(date, time, null, cat);
-      if (!slotId) { setMsg('Αυτή η ώρα είναι ήδη κλεισμένη.'); return; }
+      const slotId = await claimSlot(date, time, null, cat, cap);
+      if (!slotId) { setMsg('Το slot είναι πλήρες (' + cap + '/' + cap + ' άτομα). Αύξησε τις θέσεις ή διάλεξε άλλη ώρα.'); return; }
       const { error } = await supa.from('bookings').insert({ slot_id: slotId, full_name: name, phone, reason, language: 'el' });
       if (error) throw error;
       sendSms(phone, name, date, time);
@@ -954,14 +1038,15 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
       if (wasActive && willBeActive) {
         moved = date !== editing.date || time !== editing.time || cat !== editing.cat;
         if (moved) {
-          slotId = await claimSlot(date, time, cat === editing.cat ? editing.slotId : null, cat);
-          if (!slotId) { setMsg('Αυτή η ώρα είναι ήδη κλεισμένη.'); return; }
+          slotId = await claimSlot(date, time, cat === editing.cat ? editing.slotId : null, cat, cap, editing.id);
+          if (!slotId) { setMsg('Το slot είναι πλήρες. Αύξησε τις θέσεις ή διάλεξε άλλη ώρα.'); return; }
         }
       } else if (!wasActive && willBeActive) {          // un-cancel: take a slot again
-        slotId = await claimSlot(date, time, regularOld ? null : editing.slotId, cat);
-        if (!slotId) { setMsg('Αυτή η ώρα είναι ήδη κλεισμένη.'); return; }
+        slotId = await claimSlot(date, time, regularOld ? null : editing.slotId, cat, cap, editing.id);
+        if (!slotId) { setMsg('Το slot είναι πλήρες. Αύξησε τις θέσεις ή διάλεξε άλλη ώρα.'); return; }
         moved = date !== editing.date || time !== editing.time || cat !== editing.cat;
       }
+      if (!moved && willBeActive) await supa.from('availability').update({ capacity: cap }).eq('id', slotId);
       const upd = { slot_id: slotId, full_name: name, phone, reason, status };
       let { error } = await supa.from('bookings').update(upd).eq('id', editing.id);
       if (error) throw error;
@@ -977,7 +1062,7 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
     await loadBookings();
   } catch (err) {
     console.error(err);
-    setMsg('Κάτι πήγε στραβά. Δοκίμασε ξανά.');
+    setMsg(/slot_full/.test(String(err && (err.message || err))) ? 'Το slot είναι πλήρες.' : 'Κάτι πήγε στραβά. Δοκίμασε ξανά.');
   } finally {
     btn.disabled = false; btn.textContent = 'Αποθήκευση';
   }

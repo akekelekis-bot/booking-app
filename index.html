@@ -713,25 +713,6 @@ document.getElementById('booking-form').addEventListener('submit', async (e) => 
   btn.textContent = t('submitting');
 
   try {
-    // Try to atomically claim the slot: only succeeds if still not booked
-    const { data: updated, error: updateErr } = await supa
-      .from('availability')
-      .update({ is_booked: true })
-      .eq('id', selectedSlot.id)
-      .eq('is_booked', false)
-      .select();
-
-    if (updateErr) throw updateErr;
-    if (!updated || updated.length === 0) {
-      // Someone else took it first
-      showError(t('errTaken'));
-      btn.disabled = false;
-      btn.textContent = originalText;
-      selectedSlot = null;
-      await loadAvailability();
-      return;
-    }
-
     const { error: insertErr } = await supa
       .from('bookings')
       .insert({
@@ -742,7 +723,17 @@ document.getElementById('booking-form').addEventListener('submit', async (e) => 
         language: currentLang
       });
 
-    if (insertErr) throw insertErr;
+    if (insertErr) {
+      if (/slot_full/.test(String(insertErr.message || insertErr.details || ''))) {
+        showError(t('errTaken'));
+        btn.disabled = false;
+        btn.textContent = originalText;
+        selectedSlot = null;
+        await loadAvailability();
+        return;
+      }
+      throw insertErr;
+    }
 
     // Send SMS confirmation (fire-and-forget — don't block the UI if it fails)
     const dLabel = document.getElementById('step2-title').textContent.split('—')[1]?.trim() || '';
