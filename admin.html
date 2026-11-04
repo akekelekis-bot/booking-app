@@ -555,9 +555,9 @@
   /* ===== big screens: scale the whole app so it fills the monitor ===== */
   html{ --z:1; }
   body{ zoom:var(--z); }
-  @media (min-width:1500px){ html{ --z:1.1; } }
-  @media (min-width:1800px){ html{ --z:1.25; } }
-  @media (min-width:2200px){ html{ --z:1.4; } }
+  @media (min-width:1500px){ html{ --z:1; } }
+  @media (min-width:1800px){ html{ --z:1.1; } }
+  @media (min-width:2200px){ html{ --z:1.2; } }
   #dashboard{ min-height:calc(100vh / var(--z)); }
   .side{ height:calc(100vh / var(--z) - 24px) !important; }
   .tgrid.uni .cell.u{ padding:1px 3px !important; min-height:0 !important; }
