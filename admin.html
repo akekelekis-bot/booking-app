@@ -562,6 +562,12 @@
   .side{ height:calc(100vh / var(--z) - 24px) !important; }
   .tgrid.uni .cell.u{ padding:1px 3px !important; min-height:0 !important; }
   .tgrid.fit .appt.u{ padding-top:1px !important; padding-bottom:1px !important; }
+
+  /* hour lines stronger, half-hour lines faint + dotted */
+  .tgrid.uni .cell.u, .tgrid.uni .hr{ border-bottom:1px dotted #E1E5EC !important; }
+  .tgrid.uni .cell.u.halfrow, .tgrid.uni .hr.half{ border-bottom:1px solid #B3BCCB !important; }
+  .tgrid.uni .hr.half{ font-weight:500; opacity:.75; font-size:10.5px; }
+  .tgrid.uni .hr:not(.half){ font-weight:700; color:#4A5568; }
 </style>
 </head>
 <body>
@@ -850,7 +856,7 @@ function renderTimetable(allDays){
   days.forEach(d => CATS.forEach(([c,l]) => { html += `<div class="th sub2 ${c}${c==='physio'?' first':''}">${l}</div>`; }));
   for (let k = FIRST; k <= LAST; k += 30) {
     const hh = pad(Math.floor(k/60)), mm = pad(k%60);
-    html += `<div class="hr${k%60?' half':''}">${k%60 ? '' : hh + ':00'}</div>`;
+    html += `<div class="hr${k%60?' half':''}">${hh}:${mm}</div>`;
     days.forEach(d => {
       const key = ymd(d);
       CATS.forEach(([c]) => {
