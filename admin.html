@@ -837,6 +837,7 @@
       <div id="modal-msg"></div>
       <div class="modal-actions">
         <button type="submit" class="btn" id="save-btn">Αποθήκευση</button>
+        <button type="button" class="btn ghost" id="finish-btn" style="display:none">Ολοκλήρωση θεραπείας</button>
         <button type="button" class="btn danger" id="delete-btn">Διαγραφή</button>
         <button type="button" class="btn ghost" id="close-btn">Κλείσιμο</button>
       </div>
@@ -919,6 +920,11 @@ function showDashboard(){
 }
 
 // ---------- data ----------
+let inactiveMap = {};
+async function loadInactive(){
+  try { const r = await supa.from('patient_status').select('*'); inactiveMap = {}; (r.data || []).forEach(x => { inactiveMap[x.patient_key] = x; }); } catch(e){ inactiveMap = {}; }
+}
+const STALE_DAYS = 90;
 async function loadBookings(){
   const view = document.getElementById('view');
   view.innerHTML = '<div style="padding:40px;text-align:center;color:var(--ink-soft)">Φόρτωση…</div>';
@@ -949,6 +955,7 @@ async function loadBookings(){
     sessionNo: b.session_no || null,
     cat: b.availability.category === 'gym' ? 'gym' : 'physio'
   }));
+  await loadInactive();
   render();
 }
 
@@ -1147,6 +1154,7 @@ function openModal(b, date, time, cat){
   syncLock();
   refreshSlotInfo();
   document.getElementById('delete-btn').style.display = b ? '' : 'none';
+  { const fb = document.getElementById('finish-btn'); fb.style.display = b ? '' : 'none'; fb.textContent = b && inactiveMap[ptKey(b.name, b.phone)] ? 'Επανενεργοποίηση ασθενή' : 'Ολοκλήρωση θεραπείας'; }
   setMsg('');
   modal.style.display = 'flex';
 }
@@ -1273,10 +1281,10 @@ async function applyPlan(name, phone, cat, date){
   const tm = want.mode === 'monthly' ? (parseInt(document.getElementById('f-term').value, 10) || 1) : 1, tdef = TERMS.find(x => x.m === tm) || TERMS[0];
   const termF = tm > 1 ? { term_months:tm, term_total:tdef.total, term_start:start } : { term_months:1, term_total:null, term_start:null };
   if (ex) {
-    if ((ex.mode || 'monthly') === want.mode && +ex.price === want.price && (ex.per_week || null) === pwv && tm === 1 && (+ex.term_months || 1) === 1) return;
-    if ((ex.mode || 'monthly') === want.mode && +ex.price === want.price && (ex.per_week || null) === pwv && tm > 1 && +ex.term_months === tm && ex.term_start === start) return;
+    if ((ex.mode || 'monthly') === want.mode && +ex.price === want.price && (ex.per_week || null) === pwv && tm === 1 && (+ex.term_months || 1) === 1 && !ex.end_date) return;
+    if ((ex.mode || 'monthly') === want.mode && +ex.price === want.price && (ex.per_week || null) === pwv && tm > 1 && +ex.term_months === tm && ex.term_start === start && !ex.end_date) return;
     if (!isVisitPlan(ex)) { const t = new Date(); await freezeMonths(ex, t.getFullYear(), t.getMonth()); }
-    const { error } = await supa.from('billing_plans').update({ mode:want.mode, price:want.price, per_week:pwv, ...termF, ...(want.mode === 'monthly' && isVisitPlan(ex) ? { start_date:start } : {}) }).eq('id', ex.id);
+    const { error } = await supa.from('billing_plans').update({ mode:want.mode, price:want.price, per_week:pwv, end_date:null, ...termF, ...(want.mode === 'monthly' && isVisitPlan(ex) ? { start_date:start } : {}) }).eq('id', ex.id);
     if (error) { console.error(error); alert('Το πλάνο δεν αποθηκεύτηκε. Έχεις τρέξει το admin-billing.sql;'); return; }
   } else {
     const { error } = await supa.from('billing_plans').insert({ patient_key:ptKey(name, phone), name, cat, mode:want.mode, price:want.price, per_week:pwv, start_date:start, ...termF });
@@ -1306,7 +1314,7 @@ function patientList(){
   const m = new Map();
   bookings.slice().sort((x, y) => (y.date + y.time).localeCompare(x.date + x.time)).forEach(b => {
     const key = nrm(b.phone).replace(/\D/g, '') || nrm(b.name);
-    if (!m.has(key)) m.set(key, { name: b.name, phone: b.phone, last: b.date, n: 0, n2: nrm(b.name), p2: (b.phone || '').replace(/\D/g, '') });
+    if (!m.has(key)) { const stale = b.date < ymd(new Date(Date.now() - STALE_DAYS * 864e5)); m.set(key, { key, name: b.name, phone: b.phone, last: b.date, n: 0, n2: nrm(b.name), p2: (b.phone || '').replace(/\D/g, ''), inactive: !!inactiveMap[key], stale }); }
     m.get(key).n++;
   });
   return Array.from(m.values());
@@ -1315,13 +1323,15 @@ function sugSearch(q, byPhone){
   q = byPhone ? q.replace(/\D/g, '') : nrm(q);
   if (q.length < (byPhone ? 3 : 2)) return [];
   const toks = byPhone ? [q] : q.split(' ');
-  return patientList().filter(p => byPhone ? p.p2.includes(q) : toks.every(t => p.n2.includes(t)))
+  const all = patientList().filter(p => byPhone ? p.p2.includes(q) : toks.every(t => p.n2.includes(t)));
+  const act = all.filter(p => !p.inactive && !p.stale);
+  return (act.length ? act : all)
     .sort((x, y) => (nrm(x.name).startsWith(q) ? 0 : 1) - (nrm(y.name).startsWith(q) ? 0 : 1)).slice(0, 8);
 }
 function showSug(boxId, list){
   const box = document.getElementById(boxId);
   if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  box.innerHTML = list.map((p, i) => `<button type="button" data-i="${i}"><span><b>${escapeHtml(p.name)}</b><br><small>${escapeHtml(p.phone)}</small></span><small>${p.n} ραντεβού · τελευταίο ${p.last.split('-').reverse().join('/')}</small></button>`).join('');
+  box.innerHTML = list.map((p, i) => `<button type="button" data-i="${i}"><span><b>${escapeHtml(p.name)}</b><br><small>${escapeHtml(p.phone)}</small></span><small>${p.inactive ? 'ανενεργός · ' : p.stale ? 'παλιός · ' : ''}${p.n} ραντεβού · τελευταίο ${p.last.split('-').reverse().join('/')}</small></button>`).join('');
   box.style.display = 'block'; box._list = list;
 }
 function pickPatient(p){
@@ -1405,6 +1415,7 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
         if (confirm('Η ημερομηνία/ώρα άλλαξε. Να σταλεί SMS ενημέρωσης στον ασθενή;')) sendSms(phone, name, date, time);
       }
     }
+    if (!editing && inactiveMap[ptKey(name, phone)]) { await supa.from('patient_status').delete().eq('patient_key', ptKey(name, phone)); }
     await applyPlan(name, phone, cat, date);
     closeModal();
     anchor = parseYmd(date);
@@ -1417,6 +1428,23 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
   }
 });
 
+document.getElementById('finish-btn').addEventListener('click', async () => {
+  if (!editing) return;
+  const key = ptKey(editing.name, editing.phone), nm = editing.name;
+  if (inactiveMap[key]) {
+    await supa.from('patient_status').delete().eq('patient_key', key);
+  } else {
+    if (!confirm('Ο/Η ' + nm + ' ολοκλήρωσε τη θεραπεία και γίνεται ανενεργός/ή;\nΔεν θα εμφανίζεται στην αναζήτηση ασθενών και οι μηνιαίες χρεώσεις του/της σταματούν στο τέλος του μήνα. Το ιστορικό μένει.')) return;
+    const { error } = await supa.from('patient_status').upsert({ patient_key:key, name:nm, inactive_since:ymd(new Date()) }, { onConflict:'patient_key' });
+    if (error) { console.error(error); alert('Δεν αποθηκεύτηκε. Έχεις τρέξει το admin-billing.sql;'); return; }
+    try {
+      const t = new Date(), e2 = ymd(new Date(t.getFullYear(), t.getMonth() + 1, 0));
+      const r = await supa.from('billing_plans').select('*').eq('patient_key', key);
+      for (const p of (r.data || [])) if (!p.end_date || p.end_date > e2) await supa.from('billing_plans').update({ end_date:e2 }).eq('id', p.id);
+    } catch(e){}
+  }
+  closeModal(); await loadBookings(); if (typeof financeOn !== 'undefined' && financeOn && finUnlocked) { await loadPayments(); }
+});
 document.getElementById('delete-btn').addEventListener('click', async () => {
   if (!editing) return;
   if (!confirm('Οριστική διαγραφή αυτού του ραντεβού; (Για απλή ακύρωση, άλλαξε την Κατάσταση σε «Ακυρωμένο».)')) return;
