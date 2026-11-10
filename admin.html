@@ -704,6 +704,27 @@
   .appt.u.physio{ background:#DCE7F6 !important; border-color:#C5D6EE !important; color:#22344F !important; }
   .appt.u.gym{ background:#F6E3C8 !important; border-color:#EBCFA6 !important; color:#4F3A1F !important; }
   .tgrid.fit .appt.u.physio{ --k:#7D9BC4; } .tgrid.fit .appt.u.gym{ --k:#D9A862; }
+
+  .appt .sn{ font-style:normal; font-weight:600; font-size:.78em; opacity:.6; margin-left:6px; flex:none; }
+  .appt .sn::before{ content:'#'; }
+  .field #f-sn{ width:100%; }
+  .fin-sub{ font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:#9A917F; margin:18px 2px 6px; }
+  .fin-form{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 14px; padding:12px 14px; border:1px solid #E6E0D4; border-radius:18px; }
+  .fin-form input, .fin-form select{ border:1px solid #E6E0D4; border-radius:999px; padding:7px 12px; font-family:inherit; font-size:13px; background:#fff; }
+  .fin-form button{ border:1px solid #E6E0D4; background:#fff; border-radius:999px; padding:7px 14px; font-family:inherit; font-size:13px; cursor:pointer; }
+  .fin-form button.primary{ background:#1F2A37; color:#fff; border-color:#1F2A37; }
+  .fin-pend{ margin:0 0 10px; padding:10px 14px; border-radius:18px; background:#FBEFEA; font-size:13px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .fin-pend button{ border:1px solid #E8C9BE; background:#fff; border-radius:999px; padding:4px 11px; font-size:12px; cursor:pointer; font-family:inherit; }
+  .fin-note{ font-size:11px; color:#8D8678; font-weight:400; } .fin-note.late{ color:#B9503F; font-weight:600; }
+  .fin-table tr.late td{ background:#FBEFEA; }
+  .fin-table input[type=date]{ border:1px solid var(--rule); background:#fff; border-radius:999px; padding:4px 10px; font-family:inherit; font-size:12.5px; width:140px; }
+  .fin-act{ white-space:nowrap; } .fin-act button{ margin-right:10px; border:0; background:transparent; font-size:12px; color:#8D8678; cursor:pointer; text-decoration:underline; font-family:inherit; }
+
+  .linkbtn{ border:0; background:transparent; color:#8A6F3F; font-family:inherit; font-size:13px; cursor:pointer; padding:4px 0; text-decoration:underline; }
+  .plan-cur{ font-size:13px; margin:2px 0 8px; color:#2A2F38; }
+  #plan-body select, #plan-body input{ border:1px solid #E6E0D4; border-radius:999px; padding:7px 12px; font-family:inherit; font-size:13px; background:#fff; max-width:100%; }
+  #plan-custom{ gap:8px; margin-top:8px; flex-wrap:wrap; } #plan-custom input{ width:90px; }
+  .plan-start{ display:block; margin-top:8px; font-size:12px; color:#8D8678; } .plan-start input{ margin-left:6px; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 </head>
@@ -797,6 +818,21 @@
           <option value="cancelled">Ακυρωμένο</option>
         </select>
       </div>
+      <div class="field"><label>Συνεδρία Νο <span style="text-transform:none;letter-spacing:0;opacity:.7">· την ορίζεις εσύ, συνεχίζει μόνη της</span></label><input type="number" id="f-sn" min="1" step="1" placeholder="—" style="max-width:120px"></div>
+      <div class="field" id="plan-field"><label>Πλάνο χρέωσης <span style="text-transform:none;letter-spacing:0;opacity:.7">· τι έχετε συμφωνήσει</span></label>
+        <div id="plan-lock"><button type="button" id="plan-unlock" class="linkbtn">🔒 Ξεκλείδωμα για να δεις / ορίσεις</button></div>
+        <div id="plan-body" style="display:none">
+          <div id="plan-cur" class="plan-cur"></div>
+          <select id="f-prog"></select>
+          <div id="plan-custom" style="display:none">
+            <select id="fp-mode"><option value="monthly">Μηνιαίο</option><option value="visit">Ανά επίσκεψη</option></select>
+            <input type="number" id="fp-price" min="0" step="0.5" placeholder="€">
+            <select id="fp-pw"><option value="">χωρίς όριο/εβδ.</option><option value="1">1 / εβδ.</option><option value="2">2 / εβδ.</option><option value="3">3 / εβδ.</option><option value="4">4 / εβδ.</option><option value="5">5 / εβδ.</option></select>
+          </div>
+          <select id="f-term" style="display:none;margin-top:8px"></select>
+          <label class="plan-start" id="plan-start-l">Ισχύει από <input type="date" id="fp-start"></label>
+        </div>
+      </div>
       <div class="field"><label>Αιτιολογία / Σημείωση</label><textarea id="f-reason"></textarea></div>
       <div id="modal-msg"></div>
       <div class="modal-actions">
@@ -888,6 +924,7 @@ async function loadBookings(){
   view.innerHTML = '<div style="padding:40px;text-align:center;color:var(--ink-soft)">Φόρτωση…</div>';
   let data, error;
   for (const sel of [
+    'id, full_name, phone, reason, status, session_no, availability:slot_id ( id, slot_date, slot_time, category )',
     'id, full_name, phone, reason, status, availability:slot_id ( id, slot_date, slot_time, category )',
     'id, full_name, phone, reason, status, availability:slot_id ( id, slot_date, slot_time )',
     'id, full_name, phone, reason, availability:slot_id ( id, slot_date, slot_time )'
@@ -909,6 +946,7 @@ async function loadBookings(){
     phone: b.phone,
     reason: b.reason || '',
     status: b.status || 'new',
+    sessionNo: b.session_no || null,
     cat: b.availability.category === 'gym' ? 'gym' : 'physio'
   }));
   render();
@@ -959,7 +997,7 @@ function renderAgenda(days){
     html += `<div class="ag-day${key===todayKey?' today':''}"><div class="ag-h"><b>${DAYS_LONG[dowMon(d)]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</b><span>${items.filter(b=>b.status!=='cancelled').length} ραντεβού</span></div>`;
     if (!items.length) html += '<div class="ag-empty">—</div>';
     items.forEach(b => {
-      html += `<button class="appt ag-row ${b.status} ${b.cat}" data-id="${b.id}"><i class="ag-dot">${b.status==='completed'?'✓':b.status==='new'?'●':''}</i><em>${b.time}</em><b>${escapeHtml(b.name)}</b><span class="ag-cat">${b.cat==='gym'?'Gym':'Physio'}</span></button>`;
+      html += `<button class="appt ag-row ${b.status} ${b.cat}" data-id="${b.id}"><i class="ag-dot">${b.status==='completed'?'✓':b.status==='new'?'●':''}</i><em>${b.time}</em><b>${escapeHtml(b.name)}</b>${b.sessionNo?`<em class="sn">${b.sessionNo}</em>`:''}<span class="ag-cat">${b.cat==='gym'?'Gym':'Physio'}</span></button>`;
     });
     html += `<div class="ag-add"><button class="bcell" data-date="${key}" data-cat="physio">+ Physio</button><button class="bcell" data-date="${key}" data-cat="gym">+ Gym</button></div></div>`;
   });
@@ -999,7 +1037,7 @@ function renderTimetable(allDays){
       CATS.forEach(([c]) => {
         const items = (map[key + '|' + c + '|' + k] || []).slice().sort((x,y) => x.time.localeCompare(y.time) || x.name.localeCompare(y.name));
         html += `<div class="cell u ${c}${c==='physio'?' first':''}${dowMon(d)===5?' sat':''}${k%60?' halfrow':''}" data-date="${key}" data-time="${hh}:${mm}" data-cat="${c}">` +
-          items.map(b => `<button class="appt u ${b.cat} ${b.status}" data-id="${b.id}" title="${escapeHtml(b.time+' · '+b.name+' · '+b.phone+(b.reason?' · '+b.reason:''))}"><i class="mk">${b.status==='completed'?'✓':b.status==='new'?'●':''}</i><b>${b.time!==hh+':'+mm?b.time+' ':''}${escapeHtml(b.name)}</b><span class="pen" title="Επεξεργασία">✎</span></button>`).join('') +
+          items.map(b => `<button class="appt u ${b.cat} ${b.status}" data-id="${b.id}" title="${escapeHtml(b.time+' · '+b.name+(b.sessionNo?' · Συνεδρία '+b.sessionNo:'')+' · '+b.phone+(b.reason?' · '+b.reason:''))}"><i class="mk">${b.status==='completed'?'✓':b.status==='new'?'●':''}</i><b>${b.time!==hh+':'+mm?b.time+' ':''}${escapeHtml(b.name)}</b>${b.sessionNo?`<em class="sn">${b.sessionNo}</em>`:''}<span class="pen" title="Επεξεργασία">✎</span></button>`).join('') +
           `<em class="plus">+</em></div>`;
       });
     });
@@ -1101,8 +1139,11 @@ function openModal(b, date, time, cat){
   document.getElementById('f-name').value = b ? b.name : '';
   document.getElementById('f-phone').value = b ? b.phone : '';
   document.getElementById('f-reason').value = b ? b.reason : '';
+  { const sn = document.getElementById('f-sn'); sn.dataset.touched = ''; sn.value = b ? (b.sessionNo || '') : ''; }
   document.getElementById('f-status').value = b ? b.status : 'new';
   document.getElementById('f-cat').value = b ? b.cat : (cat || 'physio');
+  { const pf = document.getElementById('f-prog'); pf.value = ''; document.getElementById('fp-start').value = ''; document.getElementById('fp-price').value = ''; const tt = document.getElementById('f-term'); if (tt.options.length) tt.value = '1'; }
+  refreshPlanUI();
   syncLock();
   refreshSlotInfo();
   document.getElementById('delete-btn').style.display = b ? '' : 'none';
@@ -1185,6 +1226,82 @@ refreshSlotInfo.n = 0;
 ['f-date','f-time','f-cat'].forEach(id => document.getElementById(id).addEventListener('change', refreshSlotInfo));
 
 const nrm = s => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ς/g, 'σ').replace(/\s+/g, ' ').trim();
+const ptKey = (name, phone) => (phone || '').replace(/\D/g, '') || nrm(name);
+const TERMS = [ { m:1, total:null, label:'Κάθε μήνα (100 € / μήνα)' }, { m:2, total:190, label:'2 μήνες εφάπαξ · 190 €' }, { m:3, total:280, label:'3 μήνες εφάπαξ · 280 €' } ];
+const termOptions = () => TERMS.map(t => `<option value="${t.m}">${t.label}</option>`).join('');
+let programs = [
+  { id:'v25', label:'Physio · ανά επίσκεψη · 25 €', mode:'visit', price:25, pw:null },
+  { id:'v30', label:'Physio · ανά επίσκεψη · 30 €', mode:'visit', price:30, pw:null },
+  { id:'v50', label:'Physio · ανά επίσκεψη · 50 €', mode:'visit', price:50, pw:null },
+  { id:'v15', label:'Ανά επίσκεψη · 15 €', mode:'visit', price:15, pw:null },
+  { id:'m2', label:'Μηνιαίο · 2 / εβδομάδα · 100 €', mode:'monthly', price:100, pw:2 },
+  { id:'m3', label:'Μηνιαίο · 3 / εβδομάδα · 100 €', mode:'monthly', price:100, pw:3 }
+];
+try { const pr = JSON.parse(localStorage.getItem('sr_programs') || 'null'); if (Array.isArray(pr) && pr.length) programs = pr; } catch(e){}
+const isVisitPlan = p => p && p.mode === 'visit';
+const planOf = (name, phone, cat) => plans.find(p => p.patient_key === ptKey(name, phone) && p.cat === cat) || null;
+const planText = p => !p ? 'Δεν έχει οριστεί πλάνο.' : (isVisitPlan(p) ? 'Ανά επίσκεψη · ' + money(p.price) : 'Μηνιαίο · ' + money(p.price) + (p.per_week ? ' · ' + p.per_week + ' / εβδομάδα' : '') + (+p.term_months > 1 ? ' · πακέτο ' + p.term_months + ' μηνών ' + money(p.term_total) + ' από ' + parseYmd(p.term_start).toLocaleDateString('el-GR') : '') + ' · από ' + parseYmd(p.start_date).toLocaleDateString('el-GR'));
+async function refreshPlanUI(){
+  const lock = document.getElementById('plan-lock'), body = document.getElementById('plan-body');
+  if (!finUnlocked) { lock.style.display = ''; body.style.display = 'none'; return; }
+  lock.style.display = 'none'; body.style.display = '';
+  const name = document.getElementById('f-name').value.trim(), phone = document.getElementById('f-phone').value.trim(), cat = document.getElementById('f-cat').value;
+  const cur = (name || phone) ? planOf(name, phone, cat) : null;
+  document.getElementById('plan-cur').textContent = billErr ? 'Χρειάζεται το admin-billing.sql στο Supabase.' : planText(cur);
+  const sel = document.getElementById('f-prog'), keep = sel.value;
+  sel.innerHTML = '<option value="">' + (cur ? '— χωρίς αλλαγή —' : '— χωρίς πλάνο —') + '</option>' + programs.map(p => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('') + '<option value="other">Άλλο…</option>';
+  sel.value = [...sel.options].some(o => o.value === keep) ? keep : '';
+  syncPlanForm();
+}
+function syncPlanForm(){
+  const v = document.getElementById('f-prog').value;
+  document.getElementById('plan-custom').style.display = v === 'other' ? 'flex' : 'none';
+  const st = document.getElementById('fp-start'), l = document.getElementById('plan-start-l');
+  const monthly = v && (v === 'other' ? document.getElementById('fp-mode').value === 'monthly' : (programs.find(p => p.id === v) || {}).mode === 'monthly');
+  l.style.display = monthly ? '' : 'none';
+  const ts = document.getElementById('f-term'); if (!ts.options.length) ts.innerHTML = termOptions(); ts.style.display = monthly ? '' : 'none'; if (!monthly) ts.value = '1';
+  if (monthly && !st.value) st.value = document.getElementById('f-date').value || ymd(new Date());
+}
+async function applyPlan(name, phone, cat, date){
+  if (!finUnlocked) return;
+  const v = document.getElementById('f-prog').value; if (!v) return;
+  let want;
+  if (v === 'other') want = { mode:document.getElementById('fp-mode').value, price:+document.getElementById('fp-price').value || 0, pw:parseInt(document.getElementById('fp-pw').value, 10) || null };
+  else { const pr = programs.find(p => p.id === v); if (!pr) return; want = { mode:pr.mode, price:pr.price, pw:pr.pw }; }
+  const start = document.getElementById('fp-start').value || date;
+  const ex = planOf(name, phone, cat), pwv = want.mode === 'monthly' ? want.pw : null;
+  const tm = want.mode === 'monthly' ? (parseInt(document.getElementById('f-term').value, 10) || 1) : 1, tdef = TERMS.find(x => x.m === tm) || TERMS[0];
+  const termF = tm > 1 ? { term_months:tm, term_total:tdef.total, term_start:start } : { term_months:1, term_total:null, term_start:null };
+  if (ex) {
+    if ((ex.mode || 'monthly') === want.mode && +ex.price === want.price && (ex.per_week || null) === pwv && tm === 1 && (+ex.term_months || 1) === 1) return;
+    if ((ex.mode || 'monthly') === want.mode && +ex.price === want.price && (ex.per_week || null) === pwv && tm > 1 && +ex.term_months === tm && ex.term_start === start) return;
+    if (!isVisitPlan(ex)) { const t = new Date(); await freezeMonths(ex, t.getFullYear(), t.getMonth()); }
+    const { error } = await supa.from('billing_plans').update({ mode:want.mode, price:want.price, per_week:pwv, ...termF, ...(want.mode === 'monthly' && isVisitPlan(ex) ? { start_date:start } : {}) }).eq('id', ex.id);
+    if (error) { console.error(error); alert('Το πλάνο δεν αποθηκεύτηκε. Έχεις τρέξει το admin-billing.sql;'); return; }
+  } else {
+    const { error } = await supa.from('billing_plans').insert({ patient_key:ptKey(name, phone), name, cat, mode:want.mode, price:want.price, per_week:pwv, start_date:start, ...termF });
+    if (error) { console.error(error); alert('Το πλάνο δεν αποθηκεύτηκε. Έχεις τρέξει το admin-billing.sql;'); return; }
+  }
+  await loadPayments();
+}
+document.getElementById('plan-unlock').addEventListener('click', async () => { if (!finUnlocked) { if (!await askPin()) return; finUnlocked = true; await loadPayments(); } refreshPlanUI(); });
+document.getElementById('f-prog').addEventListener('change', syncPlanForm);
+document.getElementById('fp-mode').addEventListener('change', syncPlanForm);
+['f-name','f-phone','f-cat'].forEach(id => document.getElementById(id).addEventListener('change', refreshPlanUI));
+function nextSession(name, phone){
+  const k = ptKey(name, phone);
+  const nums = bookings.filter(b => b.status !== 'cancelled' && b.sessionNo && ptKey(b.name, b.phone) === k).map(b => b.sessionNo);
+  return nums.length ? Math.max(...nums) + 1 : 1;
+}
+function suggestSn(){
+  if (editing) return;
+  const sn = document.getElementById('f-sn'); if (sn.dataset.touched) return;
+  const name = document.getElementById('f-name').value.trim(), phone = document.getElementById('f-phone').value.trim();
+  if (!name && !phone) { sn.value = ''; return; }
+  sn.value = nextSession(name, phone);
+}
+document.getElementById('f-sn').addEventListener('input', e => { e.target.dataset.touched = '1'; });
+['f-name','f-phone'].forEach(id => document.getElementById(id).addEventListener('change', suggestSn));
 function patientList(){
   const m = new Map();
   bookings.slice().sort((x, y) => (y.date + y.time).localeCompare(x.date + x.time)).forEach(b => {
@@ -1208,7 +1325,7 @@ function showSug(boxId, list){
   box.style.display = 'block'; box._list = list;
 }
 function pickPatient(p){
-  document.getElementById('f-name').value = p.name; document.getElementById('f-phone').value = p.phone;
+  document.getElementById('f-name').value = p.name; document.getElementById('f-phone').value = p.phone; suggestSn(); refreshPlanUI();
   ['pt-sug','pt-sug2'].forEach(i => { const b = document.getElementById(i); b.style.display = 'none'; b.innerHTML = ''; });
   document.getElementById('f-reason').focus();
 }
@@ -1233,6 +1350,12 @@ function sendSms(phone, name, date, time){
 }
 
 // ---------- save / cancel ----------
+async function writeBooking(kind, obj, id){
+  const go = o => kind === 'insert' ? supa.from('bookings').insert(o) : supa.from('bookings').update(o).eq('id', id);
+  let r = await go(obj);
+  if (r.error && /session_no/.test(String(r.error.message || ''))) { const o = { ...obj }; delete o.session_no; r = await go(o); }
+  return r;
+}
 document.getElementById('appt-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const date = document.getElementById('f-date').value;
@@ -1243,6 +1366,7 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
   const cat = document.getElementById('f-cat').value;
   try { localStorage.setItem('sr_lastcat', cat); } catch(_){}
   const cap = 4;
+  const sessNo = parseInt(document.getElementById('f-sn').value, 10) || null;
   if (!date || !time || !name || !phone) { setMsg('Συμπλήρωσε ημερομηνία, ώρα, όνομα και τηλέφωνο.'); return; }
 
   const btn = document.getElementById('save-btn');
@@ -1251,7 +1375,7 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
     if (!editing) {
       const slotId = await claimSlot(date, time, null, cat, cap);
       if (!slotId) { setMsg('Έχουν ήδη κλειστεί 4 άτομα σε αυτή την ώρα.'); return; }
-      const { error } = await supa.from('bookings').insert({ slot_id: slotId, full_name: name, phone, reason, language: 'el' });
+      const { error } = await writeBooking('insert', { slot_id: slotId, full_name: name, phone, reason, language: 'el', session_no: sessNo });
       if (error) throw error;
       sendSms(phone, name, date, time);
     } else {
@@ -1271,7 +1395,8 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
         moved = date !== editing.date || time !== editing.time || cat !== editing.cat;
       }
       const upd = { slot_id: slotId, full_name: name, phone, reason, status };
-      let { error } = await supa.from('bookings').update(upd).eq('id', editing.id);
+      upd.session_no = sessNo;
+      let { error } = await writeBooking('update', upd, editing.id);
       if (error) throw error;
       if (wasActive && !willBeActive) { if (regularOld) await releaseSlot(editing.slotId, editing.date, editing.time, editing.cat); }
       else if (moved && wasActive) await releaseSlot(editing.slotId, editing.date, editing.time, editing.cat);
@@ -1280,6 +1405,7 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
         if (confirm('Η ημερομηνία/ώρα άλλαξε. Να σταλεί SMS ενημέρωσης στον ασθενή;')) sendSms(phone, name, date, time);
       }
     }
+    await applyPlan(name, phone, cat, date);
     closeModal();
     anchor = parseYmd(date);
     await loadBookings();
@@ -1305,10 +1431,10 @@ document.getElementById('delete-btn').addEventListener('click', async () => {
 
 
 // ---------- finance (hidden, PIN-locked) ----------
-let financeOn = false, finUnlocked = false, payments = {}, finLoadError = false;
+let financeOn = false, finUnlocked = false, payments = {}, finLoadError = false, plans = [], mpay = {}, billErr = false;
 const METHODS = { cash:'Μετρητά', card:'Κάρτα', bank:'Τράπεζα' };
-let priceList = { physio:[50,30,25], gym:[80,160,240] };
-try { const pl = JSON.parse(localStorage.getItem('sr_pricelist') || 'null'); if (pl && pl.physio && pl.gym) priceList = pl; } catch(e){}
+let priceList = { physio:[25,30,50], gym:[80,160,240] };
+try { const pl = JSON.parse(localStorage.getItem('sr_pricelist2') || 'null'); if (pl && pl.physio && pl.gym) priceList = pl; } catch(e){}
 const customRows = new Set();
 async function sha(t){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('sr:' + t)); return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2,'0')).join(''); }
 async function askPin(){
@@ -1335,6 +1461,52 @@ async function loadPayments(){
   const { data, error } = await supa.from('payments').select('*');
   finLoadError = !!error; payments = {};
   (data || []).forEach(r => { payments[r.booking_id] = r; });
+  const r2 = await supa.from('billing_plans').select('*'), r3 = await supa.from('month_payments').select('*');
+  billErr = !!(r2.error || r3.error); plans = r2.data || []; mpay = {};
+  (r3.data || []).forEach(r => { mpay[r.patient_key + '|' + r.cat + '|' + r.month] = r; });
+}
+const monthlyPlans = () => plans.filter(p => !isVisitPlan(p));
+const mKey = (y, m) => y + '-' + pad(m + 1);
+function planActive(p, y, m){ const s = parseYmd(p.start_date); if (s > new Date(y, m + 1, 0)) return false; if (p.end_date && parseYmd(p.end_date) < new Date(y, m, 1)) return false; return true; }
+function termIdx(p, y, m){  // index of this month inside a prepaid package, else null
+  if (!(+p.term_months > 1) || !p.term_start) return null;
+  const t = parseYmd(p.term_start), i = (y - t.getFullYear()) * 12 + (m - t.getMonth());
+  return i >= 0 && i < +p.term_months ? i : null;
+}
+function termEnded(p, y, m){ if (!(+p.term_months > 1) || !p.term_start) return false; const t = parseYmd(p.term_start); return (y - t.getFullYear()) * 12 + (m - t.getMonth()) === +p.term_months; }
+function planDue(p, y, m){
+  const ts = termIdx(p, y, m);
+  if (ts !== null) return ts === 0 ? (+p.term_total || 0) : 0;
+  const s = parseYmd(p.start_date), dim = new Date(y, m + 1, 0).getDate(); let due = +p.price || 0;
+  if (s.getFullYear() === y && s.getMonth() === m && s.getDate() > 1) due = Math.round(due * (dim - s.getDate() + 1) / dim);
+  return due;
+}
+function mrow(p, y, m){
+  const rec = mpay[p.patient_key + '|' + p.cat + '|' + mKey(y, m)] || null;
+  const due = rec && rec.amount_due != null ? +rec.amount_due : planDue(p, y, m);
+  const got = rec ? (+rec.amount || 0) : 0;
+  const sessions = bookings.filter(b => b.status !== 'cancelled' && b.cat === p.cat && b.date.startsWith(mKey(y, m)) && ptKey(b.name, b.phone) === p.patient_key).length;
+  let over = 0;
+  if (p.per_week) {
+    const wk = {}; bookings.forEach(b => { if (b.status !== 'cancelled' && b.cat === p.cat && b.date.startsWith(mKey(y, m)) && ptKey(b.name, b.phone) === p.patient_key) { const d = parseYmd(b.date), mon = new Date(d); mon.setDate(d.getDate() - dowMon(d)); const k = ymd(mon); wk[k] = (wk[k] || 0) + 1; } });
+    over = Object.values(wk).filter(n => n > p.per_week).length;
+  }
+  return { p, rec, due, got, left: Math.max(0, due - got), sessions, over };
+}
+async function saveMonth(p, y, m, patch){
+  const k = p.patient_key + '|' + p.cat + '|' + mKey(y, m), cur = mpay[k] || {};
+  const base = mrow(p, y, m);
+  const next = { patient_key:p.patient_key, cat:p.cat, month:mKey(y, m), amount_due: base.due, amount: base.got, paid_at: cur.paid_at || null, method: cur.method || null, receipt: !!cur.receipt, ...patch, updated_at: new Date().toISOString() };
+  mpay[k] = next;
+  const { error } = await supa.from('month_payments').upsert(next, { onConflict:'patient_key,cat,month' });
+  if (error) { console.error(error); alert('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); }
+}
+async function freezeMonths(p, y, m){  // keep past months at their old price before the price changes
+  const s = parseYmd(p.start_date); let yy = s.getFullYear(), mm = s.getMonth();
+  while (yy < y || (yy === y && mm <= m)) {
+    if (planActive(p, yy, mm) && !(mpay[p.patient_key + '|' + p.cat + '|' + mKey(yy, mm)])) await saveMonth(p, yy, mm, {});
+    mm++; if (mm > 11) { mm = 0; yy++; }
+  }
 }
 const money = n => (Math.round(n * 100) / 100).toLocaleString('el-GR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €';
 function amountCell(b, p){
@@ -1342,27 +1514,73 @@ function amountCell(b, p){
   if (customRows.has(b.id) || (amt && !list.includes(amt))) return `<input type="number" min="0" step="0.5" data-f="amount" value="${amt || ''}" placeholder="€" ${customRows.has(b.id) ? 'autofocus' : ''}>`;
   return `<select data-f="amountsel"><option value="">—</option>${list.map(v => `<option value="${v}"${amt===v?' selected':''}>${v} €</option>`).join('')}<option value="other">Άλλο…</option></select>`;
 }
+function monthlyHtml(mrows, y, m){
+  if (billErr) return '<div class="fin-err" style="margin-bottom:12px">Οι μηνιαίες χρεώσεις θέλουν το αρχείο <b>admin-billing.sql</b> (SQL Editor στο Supabase). Μετά ξαναφόρτωσε τη σελίδα.</div>';
+  let h = `<div class="fin-form" id="mp-form" style="display:none">
+    <input type="text" id="mpf-name" list="mpf-dl" placeholder="Όνομα ασθενή" autocomplete="off">
+    <datalist id="mpf-dl">${patientList().map(p => `<option value="${escapeHtml(p.name)}">`).join('')}</datalist>
+    <select id="mpf-cat"><option value="gym">Gym</option><option value="physio">Physio</option></select>
+    <select id="mpf-prog">${programs.map(p => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('')}<option value="other">Άλλο…</option></select>
+    <span id="mpf-custom" style="display:none;gap:8px;align-items:center">
+      <select id="mpf-mode"><option value="monthly">Μηνιαίο</option><option value="visit">Ανά επίσκεψη</option></select>
+      <input type="number" id="mpf-price" min="0" step="0.5" placeholder="€">
+      <select id="mpf-pw"><option value="">χωρίς όριο/εβδ.</option><option value="1">1 / εβδ.</option><option value="2">2 / εβδ.</option><option value="3">3 / εβδ.</option><option value="4">4 / εβδ.</option><option value="5">5 / εβδ.</option></select></span>
+    <select id="mpf-term">${termOptions()}</select>
+    <label>από <input type="date" id="mpf-start" value="${ymd(new Date())}"></label>
+    <button id="mpf-save" class="primary">Αποθήκευση</button><button id="mpf-cancel">Άκυρο</button></div>`;
+  // overdue months of earlier periods
+  const pend = [];
+  monthlyPlans().forEach(p => { const s = parseYmd(p.start_date); let yy = s.getFullYear(), mm = s.getMonth();
+    while (yy < y || (yy === y && mm < m)) { if (planActive(p, yy, mm)) { const r = mrow(p, yy, mm); if (r.left > 0) pend.push({ p, yy, mm, left: r.left }); } mm++; if (mm > 11) { mm = 0; yy++; } } });
+  if (pend.length) h += `<div class="fin-pend"><b>Εκκρεμότητες προηγούμενων μηνών</b> ` + pend.slice(0, 14).map(x => `<button data-jump="${x.yy}-${x.mm}">${escapeHtml(x.p.name)} · ${MONTHS_SHORT[x.mm]} · ${money(x.left)}</button>`).join('') + '</div>';
+  if (!mrows.length) return h + '<div class="fin-sub">Μηνιαίοι πελάτες</div><div class="fin-empty" style="padding:14px">Κανένας μηνιαίος πελάτης αυτόν τον μήνα. Πάτα «+ Πλάνο πελάτη».</div>';
+  h += '<div class="fin-sub">Μηνιαίοι πελάτες · ημερολογιακός μήνας (1ης έως τέλους)</div><table class="fin-table"><thead><tr><th>Ονοματεπώνυμο</th><th>Τμήμα</th><th>Συνεδρίες</th><th>Χρέωση μήνα</th><th>Εισπράχθηκε</th><th>Ημ/νία είσπραξης</th><th>Τρόπος</th><th>Απόδειξη</th><th></th></tr></thead><tbody>';
+  mrows.forEach(r => {
+    const s = parseYmd(r.p.start_date), first = s.getFullYear() === y && s.getMonth() === m && s.getDate() > 1;
+    const covered = termIdx(r.p, y, m) > 0;
+    const overdue = r.left > 0 && new Date(y, m + 1, 0) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+    const rec = r.rec || {};
+    h += `<tr class="${(r.left === 0 && r.due > 0) || covered ? 'paid' : overdue ? 'late' : ''}" data-mp="${r.p.id}">
+      <td><b>${escapeHtml(r.p.name)}</b>${termIdx(r.p, y, m) === 0 ? `<div class="fin-note">Πακέτο ${r.p.term_months} μηνών · καλύπτει έως ${MONTHS_SHORT[(m + (+r.p.term_months) - 1) % 12]}</div>` : ''}${termIdx(r.p, y, m) > 0 ? '<div class="fin-note">Καλύπτεται από πακέτο</div>' : ''}${termEnded(r.p, y, m) ? '<div class="fin-note late">Το πακέτο έληξε — ανανέωση;</div>' : ''}${first && termIdx(r.p, y, m) === null ? `<div class="fin-note">Έναρξη ${s.getDate()}/${s.getMonth()+1} · αναλογικά</div>` : ''}${r.left > 0 && r.got > 0 ? `<div class="fin-note">Υπόλοιπο ${money(r.left)}</div>` : ''}${overdue ? '<div class="fin-note late">Καθυστερεί</div>' : ''}</td>
+      <td>${r.p.cat === 'gym' ? 'Gym' : 'Physio'}</td><td>${r.sessions}${r.p.per_week ? `<div class="fin-note">${r.p.per_week} / εβδομάδα</div>` : ''}${r.over ? `<div class="fin-note late">Ξεπέρασε το όριο (${r.over} εβδ.)</div>` : ''}</td>
+      <td><input type="number" min="0" step="0.5" data-g="due" value="${r.due}"></td>
+      <td><input type="number" min="0" step="0.5" data-g="amount" value="${r.got || ''}" placeholder="€"></td>
+      <td><input type="date" data-g="paid_at" value="${rec.paid_at ? String(rec.paid_at).slice(0, 10) : ''}"></td>
+      <td><select data-g="method"><option value="">—</option>${Object.entries(METHODS).map(([k, v]) => `<option value="${k}"${rec.method === k ? ' selected' : ''}>${v}</option>`).join('')}</select></td>
+      <td><input type="checkbox" data-g="receipt"${rec.receipt ? ' checked' : ''}></td>
+      <td class="fin-act"><button data-act="price" title="Νέα τιμή από τον επόμενο μήνα">Τιμή</button><button data-act="end" title="Τέλος μηνιαίας συνδρομής">Λήξη</button></td></tr>`;
+  });
+  return h + '</tbody></table><div class="fin-sub">Ανά επίσκεψη (όσοι δεν είναι μηνιαίοι)</div>';
+}
 function renderFinance(){
   const y = anchor.getFullYear(), m = anchor.getMonth();
   document.getElementById('range-label').textContent = MONTHS[m] + ' ' + y + ' — Οικονομικά';
   const view = document.getElementById('view');
   if (finLoadError) { view.innerHTML = '<div class="fin-err">Ο πίνακας οικονομικών δεν υπάρχει ακόμα. Τρέξε το αρχείο <b>admin-finance.sql</b> στο Supabase (SQL Editor) και ξαναφόρτωσε τη σελίδα.</div>'; return; }
   const prefix = y + '-' + pad(m+1);
-  const rows = bookings.filter(b => b.date.startsWith(prefix) && b.status !== 'cancelled').sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
-  const pay = id => payments[id] || { amount:0, paid:false, method:null, receipt:false };
+  let rows = bookings.filter(b => b.date.startsWith(prefix) && b.status !== 'cancelled').sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const vprice = bk => { const vp = bk && plans.find(p => isVisitPlan(p) && p.cat === bk.cat && p.patient_key === ptKey(bk.name, bk.phone)); return vp ? +vp.price : 0; };
+  const pay = id => payments[id] || { amount: vprice(bookings.find(x => x.id === id)), paid:false, method:null, receipt:false };
+  rows = rows.filter(b => !monthlyPlans().some(p => p.cat === b.cat && p.patient_key === ptKey(b.name, b.phone) && planActive(p, y, m)));
+  const mrows = monthlyPlans().filter(p => planActive(p, y, m)).sort((x, z) => nrm(x.name).localeCompare(nrm(z.name))).map(p => mrow(p, y, m));
+  const covered = new Set(mrows.map(r => r.p.patient_key + '|' + r.p.cat));
+  const rows0 = rows;
   let paidSum = 0, unpaidSum = 0, unpaidN = 0; const byCat = { physio:0, gym:0 }, byMethod = { cash:0, card:0, bank:0 };
+  let monthlyN = 0;
+  mrows.forEach(r => { paidSum += r.got; byCat[r.p.cat] += r.got; if (r.rec && r.rec.method) byMethod[r.rec.method] += r.got; if (r.left > 0) { unpaidN++; unpaidSum += r.left; } monthlyN++; });
   rows.forEach(b => { const p = pay(b.id); if (p.paid) { paidSum += +p.amount; byCat[b.cat] += +p.amount; if (p.method) byMethod[p.method] += +p.amount; } else { unpaidN++; unpaidSum += +p.amount; } });
   let html = `<div class="fin-top">
-    <div class="fin-card dark"><div class="k">Εισπράξεις μήνα</div><div class="v">${money(paidSum)}</div><div class="s">${rows.length - unpaidN} από ${rows.length} ραντεβού πληρωμένα</div></div>
-    <div class="fin-card"><div class="k">Απλήρωτα</div><div class="v">${unpaidN}</div><div class="s">${unpaidSum ? 'Αναμενόμενο: ' + money(unpaidSum) : ' '}</div></div>
+    <div class="fin-card dark"><div class="k">Εισπράξεις μήνα</div><div class="v">${money(paidSum)}</div><div class="s">${monthlyN} μηνιαίοι · ${rows.length} ραντεβού ανά επίσκεψη</div></div>
+    <div class="fin-card"><div class="k">Απλήρωτα / υπόλοιπα</div><div class="v">${unpaidN}</div><div class="s">${unpaidSum ? 'Αναμενόμενο: ' + money(unpaidSum) : ' '}</div></div>
     <div class="fin-card"><div class="k">Ανά τμήμα</div><div class="s">Physio: <b>${money(byCat.physio)}</b><br>Gym: <b>${money(byCat.gym)}</b></div></div>
     <div class="fin-card"><div class="k">Ανά τρόπο πληρωμής</div><div class="s">Μετρητά: <b>${money(byMethod.cash)}</b><br>Κάρτα: <b>${money(byMethod.card)}</b><br>Τράπεζα: <b>${money(byMethod.bank)}</b></div></div>
   </div>
   <div class="fin-tools"><span>Τιμοκατάλογος (€):</span>
     <label>Physio <input type="text" id="pl-physio" value="${priceList.physio.join(' / ')}" style="width:130px"></label>
     <label>Gym <input type="text" id="pl-gym" value="${priceList.gym.join(' / ')}" style="width:150px"></label>
-    <button id="pin-change">Αλλαγή PIN</button><button id="fin-lock">Κλείδωμα</button></div>`;
-  if (!rows.length) html += '<div class="fin-empty">Δεν υπάρχουν ραντεβού αυτόν τον μήνα.</div>';
+    <button id="mp-add">+ Πλάνο πελάτη</button><button id="pin-change">Αλλαγή PIN</button><button id="fin-lock">Κλείδωμα</button></div>`;
+  html += monthlyHtml(mrows, y, m);
+  if (!rows.length) html += '<div class="fin-empty">Δεν υπάρχουν ραντεβού ανά επίσκεψη αυτόν τον μήνα.</div>';
   else {
     html += '<table class="fin-table"><thead><tr><th>Ημ/νία</th><th>Ώρα</th><th>Ονοματεπώνυμο</th><th>Τμήμα</th><th>Ποσό</th><th>Τρόπος</th><th>Πληρώθηκε</th><th>Απόδειξη</th></tr></thead><tbody>';
     rows.forEach(b => {
@@ -1387,13 +1605,72 @@ async function savePayment(id, patch){
   if (error) { console.error(error); alert('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); }
 }
 document.getElementById('fin-btn').addEventListener('click', openFinance);
+document.getElementById('view').addEventListener('change', e => { if (e.target.id === 'mpf-prog') document.getElementById('mpf-custom').style.display = e.target.value === 'other' ? 'inline-flex' : 'none'; });
+document.getElementById('view').addEventListener('change', async e => {
+  if (!financeOn) return;
+  const t = e.target, tr = t.closest('tr[data-mp]'); if (!tr || !t.dataset.g) return;
+  const p = plans.find(x => x.id === tr.dataset.mp); if (!p) return;
+  const y = anchor.getFullYear(), m = anchor.getMonth(), g = t.dataset.g, patch = {};
+  if (g === 'due') patch.amount_due = +t.value || 0;
+  else if (g === 'amount') { patch.amount = +t.value || 0; const cur = mpay[p.patient_key + '|' + p.cat + '|' + mKey(y, m)]; if (patch.amount && !(cur && cur.paid_at)) patch.paid_at = ymd(new Date()); }
+  else if (g === 'paid_at') patch.paid_at = t.value || null;
+  else if (g === 'method') patch.method = t.value || null;
+  else if (g === 'receipt') patch.receipt = t.checked;
+  await saveMonth(p, y, m, patch); renderFinance();
+});
+document.getElementById('view').addEventListener('click', async e => {
+  if (!financeOn) return;
+  const t = e.target.closest('button'); if (!t) return;
+  const y = anchor.getFullYear(), m = anchor.getMonth();
+  if (t.id === 'mp-add') { const f = document.getElementById('mp-form'); if (f) f.style.display = f.style.display === 'none' ? 'flex' : 'none'; return; }
+  if (t.id === 'mpf-prog') return;
+  if (t.id === 'mpf-cancel') { document.getElementById('mp-form').style.display = 'none'; return; }
+  if (t.id === 'mpf-save') {
+    const name = document.getElementById('mpf-name').value.trim(), cat = document.getElementById('mpf-cat').value;
+    const pv = document.getElementById('mpf-prog').value, start = document.getElementById('mpf-start').value;
+    let want; if (pv === 'other') want = { mode:document.getElementById('mpf-mode').value, price:+document.getElementById('mpf-price').value, pw:parseInt(document.getElementById('mpf-pw').value, 10) || null };
+    else { const pr = programs.find(p => p.id === pv); want = pr ? { mode:pr.mode, price:pr.price, pw:pr.pw } : null; }
+    if (!name || !want || !(want.price >= 0) || !start) { alert('Συμπλήρωσε όνομα, πρόγραμμα/τιμή και ημερομηνία έναρξης.'); return; }
+    const hit = patientList().find(p => p.n2 === nrm(name));
+    const key = hit ? (hit.p2 || hit.n2) : nrm(name);
+    const ex = plans.find(p => p.patient_key === key && p.cat === cat), pwv = want.mode === 'monthly' ? want.pw : null;
+    const tm = want.mode === 'monthly' ? (parseInt(document.getElementById('mpf-term').value, 10) || 1) : 1, tdef = TERMS.find(x => x.m === tm) || TERMS[0];
+    const termF = tm > 1 ? { term_months:tm, term_total:tdef.total, term_start:start } : { term_months:1, term_total:null, term_start:null };
+    if (ex) {
+      if (!confirm('Ο πελάτης έχει ήδη πλάνο (' + planText(ex) + '). Να αλλάξει;')) return;
+      if (!isVisitPlan(ex)) { await freezeMonths(ex, y, m); }
+      const { error } = await supa.from('billing_plans').update({ mode:want.mode, price:want.price, per_week:pwv, ...termF, ...(isVisitPlan(ex) && want.mode === 'monthly' ? { start_date:start } : {}) }).eq('id', ex.id);
+      if (error) { console.error(error); alert('Δεν αποθηκεύτηκε.'); return; }
+    } else {
+      const { error } = await supa.from('billing_plans').insert({ patient_key:key, name: hit ? hit.name : name, cat, mode:want.mode, price:want.price, per_week:pwv, start_date:start, ...termF });
+      if (error) { console.error(error); alert('Δεν αποθηκεύτηκε.'); return; }
+    }
+    await loadPayments(); const s = parseYmd(start); anchor = new Date(s.getFullYear(), s.getMonth(), 1); render(); return;
+  }
+  if (t.dataset.jump) { const [jy, jm] = t.dataset.jump.split('-').map(Number); anchor = new Date(jy, jm, 1); renderFinance(); return; }
+  const tr = t.closest('tr[data-mp]');
+  if (tr && t.dataset.act) {
+    const p = plans.find(x => x.id === tr.dataset.mp); if (!p) return;
+    if (t.dataset.act === 'price') {
+      const v = prompt('Νέα μηνιαία τιμή (€) από τον επόμενο μήνα:', p.price); if (v === null) return;
+      const n = parseFloat(String(v).replace(',', '.')); if (!(n >= 0)) return;
+      await freezeMonths(p, y, m);
+      await supa.from('billing_plans').update({ price:n }).eq('id', p.id); p.price = n;
+    } else if (t.dataset.act === 'end') {
+      if (!confirm('Να λήξει η μηνιαία συνδρομή στο τέλος αυτού του μήνα;')) return;
+      const e2 = ymd(new Date(y, m + 1, 0));
+      await supa.from('billing_plans').update({ end_date:e2 }).eq('id', p.id); p.end_date = e2;
+    }
+    renderFinance();
+  }
+});
 document.getElementById('view').addEventListener('change', async e => {
   if (!financeOn) return;
   const t = e.target;
   if (t.id === 'pl-physio' || t.id === 'pl-gym') {
     const arr = t.value.split(/[\/,;\s]+/).map(Number).filter(n => n > 0);
     if (arr.length) priceList[t.id.slice(3)] = arr;
-    try { localStorage.setItem('sr_pricelist', JSON.stringify(priceList)); } catch(_){}
+    try { localStorage.setItem('sr_pricelist2', JSON.stringify(priceList)); } catch(_){}
     renderFinance(); return;
   }
   const tr = t.closest('tr[data-id]'); if (!tr || !t.dataset.f) return;
@@ -1405,7 +1682,7 @@ document.getElementById('view').addEventListener('change', async e => {
   else if (f === 'amount') { patch.amount = +t.value || 0; customRows.delete(id); }
   else if (f === 'method') patch.method = t.value || null;
   else patch[f] = t.checked;
-  if (f === 'paid' && t.checked && !(+(payments[id]||{}).amount) && (priceList[b.cat]||[])[0]) patch.amount = priceList[b.cat][0];
+  if (f === 'paid' && t.checked && !(+(payments[id]||{}).amount)) { const vp = plans.find(p => isVisitPlan(p) && p.cat === b.cat && p.patient_key === ptKey(b.name, b.phone)); if (vp) patch.amount = +vp.price; else if ((priceList[b.cat]||[])[0]) patch.amount = priceList[b.cat][0]; }
   await savePayment(id, patch); renderFinance();
 });
 document.getElementById('view').addEventListener('click', async e => {
