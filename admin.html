@@ -725,6 +725,9 @@
   #plan-body select, #plan-body input{ border:1px solid #E6E0D4; border-radius:999px; padding:7px 12px; font-family:inherit; font-size:13px; background:#fff; max-width:100%; }
   #plan-custom{ gap:8px; margin-top:8px; flex-wrap:wrap; } #plan-custom input{ width:90px; }
   .plan-start{ display:block; margin-top:8px; font-size:12px; color:#8D8678; } .plan-start input{ margin-left:6px; }
+
+  .appt .du{ font-style:normal; font-size:.74em; font-weight:600; opacity:.7; margin-left:5px; flex:none; padding:0 5px; border-radius:999px; background:rgba(0,0,0,.07); }
+  .cell.u.busy{ background-image:repeating-linear-gradient(135deg, transparent 0 7px, rgba(120,110,90,.20) 7px 9px) !important; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 </head>
@@ -807,7 +810,10 @@
       <div class="field"><label>Τμήμα</label>
         <select id="f-cat"><option value="physio">Physio</option><option value="gym">Gym</option></select>
       </div>
-      <div class="field"><label>Ώρα · άτομα στην ίδια ώρα (μέχρι 4)</label>
+      <div class="field"><label>Διάρκεια</label>
+        <select id="f-dur"><option value="60">60 λεπτά</option><option value="90">90 λεπτά</option><option value="45">45 λεπτά</option><option value="30">30 λεπτά</option><option value="120">120 λεπτά</option></select>
+      </div>
+      <div class="field"><label>Ώρα · φυσιοθεραπεία 1 άτομο · γυμναστήριο στόχος 3, μέχρι 4</label>
         <input type="hidden" id="f-cap" value="4">
         <div id="slot-info" style="font-size:12px;color:var(--ink-soft);margin-top:6px"></div>
       </div>
@@ -930,6 +936,7 @@ async function loadBookings(){
   view.innerHTML = '<div style="padding:40px;text-align:center;color:var(--ink-soft)">Φόρτωση…</div>';
   let data, error;
   for (const sel of [
+    'id, full_name, phone, reason, status, session_no, duration, availability:slot_id ( id, slot_date, slot_time, category )',
     'id, full_name, phone, reason, status, session_no, availability:slot_id ( id, slot_date, slot_time, category )',
     'id, full_name, phone, reason, status, availability:slot_id ( id, slot_date, slot_time, category )',
     'id, full_name, phone, reason, status, availability:slot_id ( id, slot_date, slot_time )',
@@ -953,6 +960,7 @@ async function loadBookings(){
     reason: b.reason || '',
     status: b.status || 'new',
     sessionNo: b.session_no || null,
+    duration: b.duration || 60,
     cat: b.availability.category === 'gym' ? 'gym' : 'physio'
   }));
   await loadInactive();
@@ -1030,6 +1038,8 @@ function renderTimetable(allDays){
   const bucket = t => { const [h,m] = t.split(':').map(Number); return h*60 + (m >= 30 ? 30 : 0); };
   const map = {};
   bookings.filter(b => keys.includes(b.date)).forEach(b => { const k = b.date + '|' + b.cat + '|' + Math.min(Math.max(bucket(b.time), FIRST), LAST); (map[k] = map[k] || []).push(b); });
+  const busy = new Set();
+  bookings.forEach(b => { if (b.status === 'cancelled' || !keys.includes(b.date)) return; const st = toMin(b.time), end = st + (b.duration || 60); for (let k = bucket(b.time) + 30; k < end; k += 30) busy.add(b.date + '|' + b.cat + '|' + k); });
   const nRows = (LAST - FIRST) / 30 + 1;
   const colMin = days.length === 1 ? 200 : 78;
   let html = `<div class="grid-wrap"><div class="tgrid fit uni" style="grid-template-columns:46px ${days.map(() => 'repeat(2, minmax(0,1fr))').join(' ')}; grid-template-rows:auto auto repeat(${nRows}, minmax(26px, auto)); min-width:${46 + days.length*2*colMin}px">`;
@@ -1043,8 +1053,8 @@ function renderTimetable(allDays){
       const key = ymd(d);
       CATS.forEach(([c]) => {
         const items = (map[key + '|' + c + '|' + k] || []).slice().sort((x,y) => x.time.localeCompare(y.time) || x.name.localeCompare(y.name));
-        html += `<div class="cell u ${c}${c==='physio'?' first':''}${dowMon(d)===5?' sat':''}${k%60?' halfrow':''}" data-date="${key}" data-time="${hh}:${mm}" data-cat="${c}">` +
-          items.map(b => `<button class="appt u ${b.cat} ${b.status}" data-id="${b.id}" title="${escapeHtml(b.time+' · '+b.name+(b.sessionNo?' · Συνεδρία '+b.sessionNo:'')+' · '+b.phone+(b.reason?' · '+b.reason:''))}"><i class="mk">${b.status==='completed'?'✓':b.status==='new'?'●':''}</i><b>${b.time!==hh+':'+mm?b.time+' ':''}${escapeHtml(b.name)}</b>${b.sessionNo?`<em class="sn">${b.sessionNo}</em>`:''}<span class="pen" title="Επεξεργασία">✎</span></button>`).join('') +
+        html += `<div class="cell u ${c}${c==='physio'?' first':''}${dowMon(d)===5?' sat':''}${k%60?' halfrow':''}${busy.has(key + '|' + c + '|' + k)?' busy':''}" data-date="${key}" data-time="${hh}:${mm}" data-cat="${c}">` +
+          items.map(b => `<button class="appt u ${b.cat} ${b.status}" data-id="${b.id}" title="${escapeHtml(b.time+' · '+b.name+(b.sessionNo?' · Συνεδρία '+b.sessionNo:'')+' · '+b.duration+'΄ · '+b.phone+(b.reason?' · '+b.reason:''))}"><i class="mk">${b.status==='completed'?'✓':b.status==='new'?'●':''}</i><b>${b.time!==hh+':'+mm?b.time+' ':''}${escapeHtml(b.name)}</b>${b.sessionNo?`<em class="sn">${b.sessionNo}</em>`:''}${b.duration&&b.duration!==60?`<em class="du">${b.duration}΄</em>`:''}<span class="pen" title="Επεξεργασία">✎</span></button>`).join('') +
           `<em class="plus">+</em></div>`;
       });
     });
@@ -1147,6 +1157,7 @@ function openModal(b, date, time, cat){
   document.getElementById('f-phone').value = b ? b.phone : '';
   document.getElementById('f-reason').value = b ? b.reason : '';
   { const sn = document.getElementById('f-sn'); sn.dataset.touched = ''; sn.value = b ? (b.sessionNo || '') : ''; }
+  document.getElementById('f-dur').value = String(b ? (b.duration || 60) : 60);
   document.getElementById('f-status').value = b ? b.status : 'new';
   document.getElementById('f-cat').value = b ? b.cat : (cat || 'physio');
   { const pf = document.getElementById('f-prog'); pf.value = ''; document.getElementById('fp-start').value = ''; document.getElementById('fp-price').value = ''; const tt = document.getElementById('f-term'); if (tt.options.length) tt.value = '1'; }
@@ -1172,6 +1183,19 @@ function setMsg(t){ const el = document.getElementById('modal-msg'); el.textCont
 document.getElementById('close-btn').addEventListener('click', closeModal);
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 
+// ---------- capacity rules: physio = 1 person, gym = target 3 (up to 4) ----------
+const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+function overlapping(date, time, dur, cat, ignoreId){
+  const s = toMin(time), e = s + dur;
+  return bookings.filter(b => b.id !== ignoreId && b.status !== 'cancelled' && b.date === date && (b.cat === 'gym') === (cat === 'gym') && toMin(b.time) < e && s < toMin(b.time) + (b.duration || 60));
+}
+function peakLoad(date, time, dur, cat, ignoreId){
+  const ov = overlapping(date, time, dur, cat, ignoreId); if (!ov.length) return 0;
+  const s = toMin(time), pts = [s, ...ov.map(b => toMin(b.time)).filter(x => x > s && x < s + dur)];
+  return Math.max(...pts.map(p => ov.filter(b => toMin(b.time) <= p && p < toMin(b.time) + (b.duration || 60)).length));
+}
+const GYM_TARGET = 3, GYM_MAX = 4;
+
 // ---------- slot helpers ----------
 // Normal bookable slots: Mon–Fri, on the hour, 09:00–20:00. Anything else is a one-off slot created by hand.
 function isRegularSlot(date, time, cat){
@@ -1188,7 +1212,7 @@ function slotQuery(date, time, cat){
 }
 async function slotInfo(date, time, cat, ignoreBookingId){
   const { data: row } = await slotQuery(date, time, cat).maybeSingle();
-  const defCap = cat === 'gym' ? 4 : 1;
+  const defCap = cat === 'gym' ? GYM_MAX : 1;
   if (!row) return { id: null, cap: defCap, used: 0 };
   const { data: bs } = await supa.from('bookings').select('id, status').eq('slot_id', row.id);
   const used = (bs || []).filter(b => b.status !== 'cancelled' && b.id !== ignoreBookingId).length;
@@ -1201,8 +1225,8 @@ async function claimSlot(date, time, keepSlotId, cat, cap, ignoreBookingId){
   const info = await slotInfo(date, time, cat, ignoreBookingId);
   if (info.id) {
     if (info.id === keepSlotId) return info.id;
-    if (info.used >= 4) return null;
-    if (info.used >= info.cap) { const { error } = await supa.from('availability').update({ capacity: info.used + 1 }).eq('id', info.id); if (error) throw error; }
+    if (cat === 'gym' ? info.used >= GYM_MAX : info.used >= 1) return null;
+    if (cat === 'gym' && info.used >= info.cap) { const { error } = await supa.from('availability').update({ capacity: info.used + 1 }).eq('id', info.id); if (error) throw error; }
     return info.id;
   }
   const row = { slot_date: date, slot_time: time + ':00', is_booked: false, capacity: cat === 'gym' ? 4 : 1 };
@@ -1216,7 +1240,7 @@ async function claimSlot(date, time, keepSlotId, cat, cap, ignoreBookingId){
 async function releaseSlot(slotId, date, time, cat){
   const { data: bs } = await supa.from('bookings').select('id, status').eq('slot_id', slotId);
   const active = (bs || []).filter(b => b.status !== 'cancelled').length;
-  if (cat !== 'gym') await supa.from('availability').update({ capacity: Math.max(1, active) }).eq('id', slotId);
+  if (cat !== 'gym') await supa.from('availability').update({ capacity: 1 }).eq('id', slotId);
   if (!isRegularSlot(date, time, cat) && !(bs && bs.length)) await supa.from('availability').delete().eq('id', slotId);
 }
 
@@ -1226,24 +1250,29 @@ async function refreshSlotInfo(){
   const date = document.getElementById('f-date').value, time = document.getElementById('f-time').value, cat = document.getElementById('f-cat').value;
   if (!date || !time) { el.textContent = ''; return; }
   const my = ++refreshSlotInfo.n;
-  const info = await slotInfo(date, time, cat, editing ? editing.id : null);
+  const dur = parseInt(document.getElementById('f-dur').value, 10) || 60;
+  const ov = overlapping(date, time, dur, cat, editing ? editing.id : null), pk = peakLoad(date, time, dur, cat, editing ? editing.id : null);
   if (my !== refreshSlotInfo.n) return;
-  el.textContent = info.used ? info.used + ' ήδη στην ίδια ώρα (χωράνε μέχρι 4)' : 'Ελεύθερη ώρα';
+  el.textContent = cat === 'gym'
+    ? (pk ? pk + ' ήδη την ίδια ώρα · στόχος ' + GYM_TARGET + ', μέχρι ' + GYM_MAX : 'Ελεύθερη ώρα')
+    : (ov.length ? 'Πιασμένη ώρα (' + ov[0].time + ' · ' + ov[0].name + ' · ' + (ov[0].duration || 60) + '΄) — η φυσιοθεραπεία δέχεται 1 άτομο' : 'Ελεύθερη ώρα');
 }
 refreshSlotInfo.n = 0;
-['f-date','f-time','f-cat'].forEach(id => document.getElementById(id).addEventListener('change', refreshSlotInfo));
+['f-date','f-time','f-cat','f-dur'].forEach(id => document.getElementById(id).addEventListener('change', refreshSlotInfo));
 
 const nrm = s => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ς/g, 'σ').replace(/\s+/g, ' ').trim();
 const ptKey = (name, phone) => (phone || '').replace(/\D/g, '') || nrm(name);
 const TERMS = [ { m:1, total:null, label:'Κάθε μήνα (100 € / μήνα)' }, { m:2, total:190, label:'2 μήνες εφάπαξ · 190 €' }, { m:3, total:280, label:'3 μήνες εφάπαξ · 280 €' } ];
 const termOptions = () => TERMS.map(t => `<option value="${t.m}">${t.label}</option>`).join('');
 let programs = [
+  { id:'v30', label:'Physio · αρχική συνεδρία · 30 €', mode:'visit', price:30, pw:null },
+  { id:'v20', label:'Physio · ανά επίσκεψη · 20 € (με παραπεμπτικό)', mode:'visit', price:20, pw:null },
   { id:'v25', label:'Physio · ανά επίσκεψη · 25 €', mode:'visit', price:25, pw:null },
-  { id:'v30', label:'Physio · ανά επίσκεψη · 30 €', mode:'visit', price:30, pw:null },
+  { id:'v40', label:'Physio · ανά επίσκεψη · 40 €', mode:'visit', price:40, pw:null },
   { id:'v50', label:'Physio · ανά επίσκεψη · 50 €', mode:'visit', price:50, pw:null },
-  { id:'v15', label:'Ανά επίσκεψη · 15 €', mode:'visit', price:15, pw:null },
-  { id:'m2', label:'Μηνιαίο · 2 / εβδομάδα · 100 €', mode:'monthly', price:100, pw:2 },
-  { id:'m3', label:'Μηνιαίο · 3 / εβδομάδα · 100 €', mode:'monthly', price:100, pw:3 }
+  { id:'v15', label:'Gym · ανά επίσκεψη · 15 €', mode:'visit', price:15, pw:null },
+  { id:'m2', label:'Gym · μηνιαίο · 2 / εβδομάδα · 100 € (≈12,5 € / συνεδρία)', mode:'monthly', price:100, pw:2 },
+  { id:'m3', label:'Gym · μηνιαίο · 3 / εβδομάδα · 100 €', mode:'monthly', price:100, pw:3 }
 ];
 try { const pr = JSON.parse(localStorage.getItem('sr_programs') || 'null'); if (Array.isArray(pr) && pr.length) programs = pr; } catch(e){}
 const isVisitPlan = p => p && p.mode === 'visit';
@@ -1363,7 +1392,9 @@ function sendSms(phone, name, date, time){
 async function writeBooking(kind, obj, id){
   const go = o => kind === 'insert' ? supa.from('bookings').insert(o) : supa.from('bookings').update(o).eq('id', id);
   let r = await go(obj);
-  if (r.error && /session_no/.test(String(r.error.message || ''))) { const o = { ...obj }; delete o.session_no; r = await go(o); }
+  for (const col of ['duration', 'session_no']) {
+    if (r.error && new RegExp(col).test(String(r.error.message || ''))) { obj = { ...obj }; delete obj[col]; r = await go(obj); }
+  }
   return r;
 }
 document.getElementById('appt-form').addEventListener('submit', async (e) => {
@@ -1376,6 +1407,16 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
   const cat = document.getElementById('f-cat').value;
   try { localStorage.setItem('sr_lastcat', cat); } catch(_){}
   const cap = 4;
+  const dur = parseInt(document.getElementById('f-dur').value, 10) || 60;
+  const fullMsg = cat === 'gym' ? 'Το γυμναστήριο έχει ήδη 4 άτομα σε αυτή την ώρα.' : 'Η φυσιοθεραπεία δέχεται 1 άτομο τη φορά — η ώρα είναι πιασμένη.';
+  const capOk = () => {
+    const ov = overlapping(date, time, dur, cat, editing ? editing.id : null);
+    if (cat !== 'gym') { if (ov.length) { setMsg('Η φυσιοθεραπεία δέχεται 1 άτομο τη φορά. Πιασμένη από ' + ov[0].time + ' (' + ov[0].name + ', ' + (ov[0].duration || 60) + '΄).'); return false; } return true; }
+    const pk = peakLoad(date, time, dur, cat, editing ? editing.id : null);
+    if (pk >= GYM_MAX) { setMsg(fullMsg); return false; }
+    if (pk >= GYM_TARGET && !confirm('Θα είναι το 4ο άτομο στο γυμναστήριο αυτή την ώρα (ο στόχος είναι ' + GYM_TARGET + '). Να συνεχίσω;')) return false;
+    return true;
+  };
   const sessNo = parseInt(document.getElementById('f-sn').value, 10) || null;
   if (!date || !time || !name || !phone) { setMsg('Συμπλήρωσε ημερομηνία, ώρα, όνομα και τηλέφωνο.'); return; }
 
@@ -1383,9 +1424,10 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
   btn.disabled = true; btn.textContent = 'Αποθήκευση…'; setMsg('');
   try {
     if (!editing) {
+      if (!capOk()) return;
       const slotId = await claimSlot(date, time, null, cat, cap);
-      if (!slotId) { setMsg('Έχουν ήδη κλειστεί 4 άτομα σε αυτή την ώρα.'); return; }
-      const { error } = await writeBooking('insert', { slot_id: slotId, full_name: name, phone, reason, language: 'el', session_no: sessNo });
+      if (!slotId) { setMsg(fullMsg); return; }
+      const { error } = await writeBooking('insert', { slot_id: slotId, full_name: name, phone, reason, language: 'el', session_no: sessNo, duration: dur });
       if (error) throw error;
       sendSms(phone, name, date, time);
     } else {
@@ -1393,19 +1435,22 @@ document.getElementById('appt-form').addEventListener('submit', async (e) => {
       const wasActive = editing.status !== 'cancelled', willBeActive = status !== 'cancelled';
       const regularOld = isRegularSlot(editing.date, editing.time, editing.cat);
       let slotId = editing.slotId, moved = false;
+      const durChanged = dur !== (editing.duration || 60);
       if (wasActive && willBeActive) {
         moved = date !== editing.date || time !== editing.time || cat !== editing.cat;
+        if (moved || durChanged) { if (!capOk()) return; }
         if (moved) {
           slotId = await claimSlot(date, time, cat === editing.cat ? editing.slotId : null, cat, cap, editing.id);
-          if (!slotId) { setMsg('Έχουν ήδη κλειστεί 4 άτομα σε αυτή την ώρα.'); return; }
+          if (!slotId) { setMsg(fullMsg); return; }
         }
       } else if (!wasActive && willBeActive) {          // un-cancel: take a slot again
+        if (!capOk()) return;
         slotId = await claimSlot(date, time, regularOld ? null : editing.slotId, cat, cap, editing.id);
-        if (!slotId) { setMsg('Έχουν ήδη κλειστεί 4 άτομα σε αυτή την ώρα.'); return; }
+        if (!slotId) { setMsg(fullMsg); return; }
         moved = date !== editing.date || time !== editing.time || cat !== editing.cat;
       }
       const upd = { slot_id: slotId, full_name: name, phone, reason, status };
-      upd.session_no = sessNo;
+      upd.session_no = sessNo; upd.duration = dur;
       let { error } = await writeBooking('update', upd, editing.id);
       if (error) throw error;
       if (wasActive && !willBeActive) { if (regularOld) await releaseSlot(editing.slotId, editing.date, editing.time, editing.cat); }
@@ -1461,8 +1506,8 @@ document.getElementById('delete-btn').addEventListener('click', async () => {
 // ---------- finance (hidden, PIN-locked) ----------
 let financeOn = false, finUnlocked = false, payments = {}, finLoadError = false, plans = [], mpay = {}, billErr = false;
 const METHODS = { cash:'Μετρητά', card:'Κάρτα', bank:'Τράπεζα' };
-let priceList = { physio:[25,30,50], gym:[80,160,240] };
-try { const pl = JSON.parse(localStorage.getItem('sr_pricelist2') || 'null'); if (pl && pl.physio && pl.gym) priceList = pl; } catch(e){}
+let priceList = { physio:[20,25,30,40,50], gym:[80,160,240] };
+try { const pl = JSON.parse(localStorage.getItem('sr_pricelist3') || 'null'); if (pl && pl.physio && pl.gym) priceList = pl; } catch(e){}
 const customRows = new Set();
 async function sha(t){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('sr:' + t)); return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2,'0')).join(''); }
 async function askPin(){
@@ -1540,7 +1585,7 @@ const money = n => (Math.round(n * 100) / 100).toLocaleString('el-GR', { minimum
 function amountCell(b, p){
   const list = priceList[b.cat] || [], amt = +p.amount || 0;
   if (customRows.has(b.id) || (amt && !list.includes(amt))) return `<input type="number" min="0" step="0.5" data-f="amount" value="${amt || ''}" placeholder="€" ${customRows.has(b.id) ? 'autofocus' : ''}>`;
-  return `<select data-f="amountsel"><option value="">—</option>${list.map(v => `<option value="${v}"${amt===v?' selected':''}>${v} €</option>`).join('')}<option value="other">Άλλο…</option></select>`;
+  return `<select data-f="amountsel"><option value="">—</option>${list.map(v => `<option value="${v}"${amt===v?' selected':''}>${v} €${v===20?' · παραπ.':''}</option>`).join('')}<option value="other">Άλλο…</option></select>`;
 }
 function monthlyHtml(mrows, y, m){
   if (billErr) return '<div class="fin-err" style="margin-bottom:12px">Οι μηνιαίες χρεώσεις θέλουν το αρχείο <b>admin-billing.sql</b> (SQL Editor στο Supabase). Μετά ξαναφόρτωσε τη σελίδα.</div>';
@@ -1610,7 +1655,7 @@ function renderFinance(){
   html += monthlyHtml(mrows, y, m);
   if (!rows.length) html += '<div class="fin-empty">Δεν υπάρχουν ραντεβού ανά επίσκεψη αυτόν τον μήνα.</div>';
   else {
-    html += '<table class="fin-table"><thead><tr><th>Ημ/νία</th><th>Ώρα</th><th>Ονοματεπώνυμο</th><th>Τμήμα</th><th>Ποσό</th><th>Τρόπος</th><th>Πληρώθηκε</th><th>Απόδειξη</th></tr></thead><tbody>';
+    html += '<table class="fin-table"><thead><tr><th>Ημ/νία</th><th>Ώρα</th><th>Ονοματεπώνυμο</th><th>Τμήμα</th><th>Ποσό</th><th>Τρόπος</th><th>Πληρώθηκε</th><th>Απόδειξη</th><th>Παραπεμπτικό</th></tr></thead><tbody>';
     rows.forEach(b => {
       const p = pay(b.id), d = parseYmd(b.date);
       html += `<tr class="${p.paid ? 'paid' : ''}" data-id="${b.id}">
@@ -1618,7 +1663,8 @@ function renderFinance(){
         <td>${amountCell(b, p)}</td>
         <td><select data-f="method"><option value="">—</option>${Object.entries(METHODS).map(([k,v]) => `<option value="${k}"${p.method===k?' selected':''}>${v}</option>`).join('')}</select></td>
         <td><input type="checkbox" data-f="paid"${p.paid?' checked':''}></td>
-        <td><input type="checkbox" data-f="receipt"${p.receipt?' checked':''}></td></tr>`;
+        <td><input type="checkbox" data-f="receipt"${p.receipt?' checked':''}></td>
+        <td>${+p.amount === 20 ? `<input type="checkbox" data-f="referral"${p.referral?' checked':''} title="Παραπεμπτικό παρελήφθη">` : ''}</td></tr>`;
     });
     html += '</tbody></table>';
   }
@@ -1629,7 +1675,9 @@ async function savePayment(id, patch){
   const next = { ...cur, ...patch, booking_id:id, updated_at:new Date().toISOString() };
   if (patch.paid === true && !cur.paid) next.paid_at = new Date().toISOString();
   payments[id] = next;
-  const { error } = await supa.from('payments').upsert({ booking_id:id, amount:+next.amount || 0, paid:!!next.paid, method:next.method || null, receipt:!!next.receipt, paid_at:next.paid_at || null, updated_at:next.updated_at }, { onConflict:'booking_id' });
+  const row = { booking_id:id, amount:+next.amount || 0, paid:!!next.paid, method:next.method || null, receipt:!!next.receipt, referral:!!next.referral, paid_at:next.paid_at || null, updated_at:next.updated_at };
+  let { error } = await supa.from('payments').upsert(row, { onConflict:'booking_id' });
+  if (error && /referral/.test(String(error.message || ''))) { delete row.referral; ({ error } = await supa.from('payments').upsert(row, { onConflict:'booking_id' })); }
   if (error) { console.error(error); alert('Δεν αποθηκεύτηκε. Δοκίμασε ξανά.'); }
 }
 document.getElementById('fin-btn').addEventListener('click', openFinance);
@@ -1698,7 +1746,7 @@ document.getElementById('view').addEventListener('change', async e => {
   if (t.id === 'pl-physio' || t.id === 'pl-gym') {
     const arr = t.value.split(/[\/,;\s]+/).map(Number).filter(n => n > 0);
     if (arr.length) priceList[t.id.slice(3)] = arr;
-    try { localStorage.setItem('sr_pricelist2', JSON.stringify(priceList)); } catch(_){}
+    try { localStorage.setItem('sr_pricelist3', JSON.stringify(priceList)); } catch(_){}
     renderFinance(); return;
   }
   const tr = t.closest('tr[data-id]'); if (!tr || !t.dataset.f) return;
