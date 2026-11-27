@@ -1820,15 +1820,15 @@ document.getElementById('view').addEventListener('click', async e => {
 checkSession();
 
 // ---------- Απόδοση (capacity, όγκος, έσοδα) ----------
-let perfOn = false, perfSat = false, perfVpw = 2;
+let perfOn = false, perfSat = false, perfVpw = 2, perfPeriod = 'week';
 try { perfSat = localStorage.getItem('sr_perf_sat2') === '1'; perfVpw = +localStorage.getItem('sr_perf_vpw') || 2; } catch(e){}
 const P_HOURS = [9,10,11,12,13,14,15,16,17,18,19,20], P_CAP = { physio:1, gym:3 };
 const P_COL = { physio:'91,132,184', gym:'196,154,74' };
 const pOpenDay = w => w < 5 || (w === 5 && perfSat);
 const pAct = b => b.status !== 'cancelled';
-function pMonthDays(y, m){
-  const today = ymd(new Date()), cur = today.slice(0,7) === mKey(y, m), dim = new Date(y, m+1, 0).getDate(), out = [];
-  for (let d = 1; d <= dim; d++) { const dt = new Date(y, m, d), k = ymd(dt), w = dowMon(dt); if (!pOpenDay(w)) continue; if (cur && k > today) continue; out.push({ k, w }); }
+function pDays(a, b){
+  const today = ymd(new Date()), out = [];
+  for (let d = new Date(a); d <= b; d = addDays(d, 1)) { const k = ymd(d), w = dowMon(d); if (!pOpenDay(w) || k > today) continue; out.push({ k, w }); }
   return out;
 }
 function pAvgDur(cat){
@@ -1836,9 +1836,10 @@ function pAvgDur(cat){
   return l.length ? Math.max(60, l.reduce((s,b) => s + (b.duration || 60), 0) / l.length) : 60;
 }
 function pFirstSeen(){ const f = {}; bookings.forEach(b => { if (!pAct(b)) return; const k = ptKey(b.name, b.phone); if (!f[k] || b.date < f[k]) f[k] = b.date; }); return f; }
-function pMonth(y, m){
-  const pre = mKey(y, m), days = pMonthDays(y, m), dset = new Set(days.map(d => d.k)), first = pFirstSeen();
-  const act = bookings.filter(b => b.date.startsWith(pre) && pAct(b)), canc = bookings.filter(b => b.date.startsWith(pre) && !pAct(b));
+function pMonth(y, m){ return pRange(new Date(y, m, 1), new Date(y, m + 1, 0)); }
+function pRange(A, B){
+  const sa = ymd(A), sb = ymd(B), inR = k => k >= sa && k <= sb, days = pDays(A, B), dset = new Set(days.map(d => d.k)), first = pFirstSeen();
+  const act = bookings.filter(b => inR(b.date) && pAct(b)), canc = bookings.filter(b => inR(b.date) && !pAct(b));
   const heat = { physio:{}, gym:{} }, nDays = {};
   days.forEach(d => { nDays[d.w] = (nDays[d.w] || 0) + 1; });
   ['physio','gym'].forEach(c => { for (let w = 0; w < 6; w++) { heat[c][w] = {}; P_HOURS.forEach(h => { heat[c][w][h] = 0; }); } });
@@ -1852,14 +1853,14 @@ function pMonth(y, m){
   });
   const pat = {}, patCat = { physio:new Set(), gym:new Set() };
   act.forEach(b => { const k = ptKey(b.name, b.phone); pat[k] = 1; patCat[b.cat].add(k); });
-  const keys = Object.keys(pat), nw = keys.filter(k => first[k] && first[k].startsWith(pre)).length;
+  const keys = Object.keys(pat), nw = keys.filter(k => first[k] && inR(first[k])).length;
   const per = {}; act.forEach(b => { (per[b.date] = per[b.date] || []).push([toMin(b.time), toMin(b.time) + (b.duration || 60)]); });
   let worked = 0; Object.values(per).forEach(l => { l.sort((a,b) => a[0]-b[0]); let cs = null, ce = null; l.forEach(([s,e]) => { if (cs === null) { cs = s; ce = e; } else if (s <= ce) ce = Math.max(ce, e); else { worked += ce - cs; cs = s; ce = e; } }); if (cs !== null) worked += ce - cs; });
   const n = { physio: act.filter(b => b.cat === 'physio').length, gym: act.filter(b => b.cat === 'gym').length };
   const hrs = { physio: act.filter(b => b.cat === 'physio').reduce((s,b) => s + (b.duration||60)/60, 0), gym: act.filter(b => b.cat === 'gym').reduce((s,b) => s + (b.duration||60)/60, 0) };
   const o = { physio: capH.physio ? used.physio / capH.physio : 0, gym: capH.gym ? used.gym / capH.gym : 0 };
   const all = (capH.physio + capH.gym) ? (used.physio + used.gym) / (capH.physio + capH.gym) : 0;
-  return { y, m, days, nDays, heat, occ, o, all, n, total: act.length, hrs, patients: keys.length, patCat, newP: nw, retP: keys.length - nw, canc: canc.length, cancRate: (act.length + canc.length) ? canc.length / (act.length + canc.length) : 0, workedH: worked / 60 };
+  return { A, B, days, nDays, heat, occ, o, all, n, total: act.length, hrs, patients: keys.length, patCat, newP: nw, retP: keys.length - nw, canc: canc.length, cancRate: (act.length + canc.length) ? canc.length / (act.length + canc.length) : 0, workedH: worked / 60 };
 }
 function pIncome(y, m){
   const pre = mKey(y, m);
@@ -1881,8 +1882,8 @@ const pPct = v => Math.round(v * 100) + '%';
 function pDelta(cur, prev, pts){
   if (prev === null || prev === undefined || (!pts && !prev)) return '<span class="eq">—</span>';
   const d = pts ? Math.round((cur - prev) * 100) : Math.round((cur - prev) / prev * 100);
-  if (!d) return '<span class="eq">= όπως τον προηγ. μήνα</span>';
-  return `<span class="${d > 0 ? 'up' : 'dn'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}${pts ? ' μον.' : '%'} από τον προηγ. μήνα</span>`;
+  if (!d) return '<span class="eq">= όπως την προηγ. περίοδο</span>';
+  return `<span class="${d > 0 ? 'up' : 'dn'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}${pts ? ' μον.' : '%'} από την προηγ. περίοδο</span>`;
 }
 function pBand(o){ return o >= .7 ? ['hi','Υψηλή'] : o >= .4 ? ['mid','Μέτρια'] : ['lo','Χαμηλή']; }
 function pBars(vals, labels, cap, color, ghost, fmt, wide){
@@ -1923,42 +1924,46 @@ function pSlots(c, st){
 function renderPerf(){
   document.querySelectorAll('#mode-seg button, #vt-seg button').forEach(b => b.classList.remove('active'));
   const y = anchor.getFullYear(), m = anchor.getMonth(), py = m ? y : y - 1, pm = m ? m - 1 : 11;
-  document.getElementById('range-label').textContent = MONTHS[m] + ' ' + y + ' — Απόδοση';
-  const S = pMonth(y, m), Pv = pMonth(py, pm), inc = finUnlocked && !finLoadError ? pIncome(y, m) : null, incP = inc ? pIncome(py, pm) : null;
+  const wkm = perfPeriod === 'week', A = wkm ? weekStart(anchor) : new Date(y, m, 1), B = wkm ? addDays(A, 6) : new Date(y, m + 1, 0);
+  const PA = wkm ? addDays(A, -7) : new Date(py, pm, 1), PB = wkm ? addDays(A, -1) : new Date(y, m, 0);
+  const plabel = wkm ? `${A.getDate()} ${MONTHS_SHORT[A.getMonth()]} – ${B.getDate()} ${MONTHS_SHORT[B.getMonth()]} ${B.getFullYear()}` : MONTHS[m] + ' ' + y;
+  document.getElementById('range-label').textContent = plabel;
+  const S = pRange(A, B), Pv = pRange(PA, PB), SM = pMonth(y, m), inc = finUnlocked && !finLoadError ? pIncome(y, m) : null, incP = inc ? pIncome(py, pm) : null;
   const [bc, bl] = pBand(S.all), act = pActive(), dur = { physio:pAvgDur('physio'), gym:pAvgDur('gym') };
   const dpw = perfSat ? 6 : 5, wkCap = c => dpw * P_HOURS.length * 60 * P_CAP[c] / dur[c];
-  const today = ymd(new Date()), part = today.slice(0,7) === mKey(y, m);
-  let h = `<div class="perf"><div class="verdict"><div class="big">${pPct(S.all)}</div><div class="tx"><span class="tag ${bc}">${bl} αξιοποίηση</span><br>Συνολική πληρότητα ωρών του ιατρείου<br>${pDelta(S.all, Pv.days.length ? Pv.all : null, true)}</div>
-    <div class="opts"><label><input type="checkbox" id="perf-sat"${perfSat ? ' checked' : ''}> Μέτρηση Σαββάτου</label><label>Επισκέψεις ανά ασθενή / εβδομάδα <select id="perf-vpw">${[1,1.5,2,2.5,3].map(v => `<option${v === perfVpw ? ' selected' : ''}>${v}</option>`).join('')}</select></label></div></div>`;
+  const today = ymd(new Date()), part = ymd(A) <= today && ymd(B) > today, pl2 = wkm ? 'εβδομάδα' : 'μήνα';
+  let h = `<div class="perf"><div class="verdict"><div class="big">${pPct(S.all)}</div><div class="tx"><span class="tag ${bc}">${bl} αξιοποίηση</span><br>Περίοδος: <b>${plabel}</b> (${wkm ? 'εβδομάδα' : 'μήνας'})<br>Συνολική πληρότητα ωρών του ιατρείου<br>${pDelta(S.all, Pv.days.length ? Pv.all : null, true)}</div>
+    <div class="opts"><label>Περίοδος <select id="perf-per"><option value="week"${wkm ? ' selected' : ''}>Εβδομάδα</option><option value="month"${wkm ? '' : ' selected'}>Μήνας</option></select></label><label><input type="checkbox" id="perf-sat"${perfSat ? ' checked' : ''}> Μέτρηση Σαββάτου</label><label>Επισκέψεις ανά ασθενή / εβδομάδα <select id="perf-vpw">${[1,1.5,2,2.5,3].map(v => `<option${v === perfVpw ? ' selected' : ''}>${v}</option>`).join('')}</select></label></div></div>`;
   h += `<div class="kpis">
     <div class="kpi"><div class="k">Πληρότητα Physio</div><div class="v">${pPct(S.o.physio)}</div><div class="s">${S.hrs.physio.toFixed(0)} ώρες από ${(S.days.length * P_HOURS.length).toFixed(0)} διαθέσιμες<br>${pDelta(S.o.physio, Pv.days.length ? Pv.o.physio : null, true)}</div></div>
     <div class="kpi"><div class="k">Πληρότητα Gym</div><div class="v">${pPct(S.o.gym)}</div><div class="s">${S.hrs.gym.toFixed(0)} ώρες-ατόμων από ${(S.days.length * P_HOURS.length * 3).toFixed(0)}<br>${pDelta(S.o.gym, Pv.days.length ? Pv.o.gym : null, true)}</div></div>
     <div class="kpi"><div class="k">Ραντεβού</div><div class="v">${S.total}</div><div class="s">Physio ${S.n.physio} · Gym ${S.n.gym}<br>${pDelta(S.total, Pv.total, false)}</div></div>
     <div class="kpi"><div class="k">Ασθενείς</div><div class="v">${S.patients}</div><div class="s">Νέοι ${S.newP} · Επανερχόμενοι ${S.retP}<br>${pDelta(S.patients, Pv.patients, false)}</div></div>
     <div class="kpi"><div class="k">Ακυρώσεις</div><div class="v">${S.canc}</div><div class="s">${pPct(S.cancRate)} των ραντεβού<br>${pDelta(S.cancRate, Pv.total ? Pv.cancRate : null, true)}</div></div>`;
-  if (inc) h += `<div class="kpi"><div class="k">Έσοδα (εισπράχθηκαν)</div><div class="v">${money(inc.paid)}</div><div class="s">Αναμενόμενα: ${money(inc.expected)}<br>${pDelta(inc.paid, incP.paid, false)}</div></div>
-    <div class="kpi"><div class="k">Έσοδα ανά ώρα εργασίας</div><div class="v">${S.workedH ? money(inc.paid / S.workedH) : '—'}</div><div class="s">${S.workedH.toFixed(0)} ώρες με ραντεβού<br>Physio ${S.hrs.physio ? money(inc.byCat.physio / S.hrs.physio) : '—'} · Gym ${S.hrs.gym ? money(inc.byCat.gym / S.hrs.gym) : '—'} ανά ώρα</div></div>`;
+  if (inc) h += `<div class="kpi"><div class="k">Έσοδα μήνα ${MONTHS[m]}</div><div class="v">${money(inc.paid)}</div><div class="s">Αναμενόμενα: ${money(inc.expected)}<br>${pDelta(inc.paid, incP.paid, false)}</div></div>
+    <div class="kpi"><div class="k">Έσοδα ανά ώρα εργασίας</div><div class="v">${SM.workedH ? money(inc.paid / SM.workedH) : '—'}</div><div class="s">${SM.workedH.toFixed(0)} ώρες με ραντεβού (μήνας)<br>Physio ${SM.hrs.physio ? money(inc.byCat.physio / SM.hrs.physio) : '—'} · Gym ${SM.hrs.gym ? money(inc.byCat.gym / SM.hrs.gym) : '—'} ανά ώρα</div></div>`;
   else h += `<div class="kpi lock"><div class="k">Έσοδα και έσοδα ανά ώρα</div><div class="s">Κλειδωμένα με το PIN των Οικονομικών.</div><button id="perf-unlock">Ξεκλείδωμα</button></div>`;
   h += '</div>';
-  if (part) h += `<div class="sub" style="margin-top:10px">Ο τρέχων μήνας υπολογίζεται μέχρι σήμερα (${S.days.length} ημέρες λειτουργίας), ώστε οι μελλοντικές κενές ώρες να μη μειώνουν την πληρότητα.</div>`;
-  h += `<h3>Πληρότητα ανά ημέρα και ώρα</h3><p class="sub">Κάθε κελί δείχνει πόσο γεμάτη ήταν αυτή η ώρα τον μήνα. 100% σημαίνει ότι η ώρα ήταν πάντα πλήρης: 1 άτομο στο Physio, 3 άτομα στο Gym.</p><div class="grid2">`;
+  if (part) h += `<div class="sub" style="margin-top:10px">Η τρέχουσα περίοδος υπολογίζεται μέχρι σήμερα (${S.days.length} ημέρες λειτουργίας), ώστε οι μελλοντικές κενές ώρες να μη μειώνουν την πληρότητα.</div>`;
+  h += `<h3>Πληρότητα ανά ημέρα και ώρα</h3><p class="sub">Κάθε κελί δείχνει πόσο γεμάτη ήταν αυτή η ώρα στην περίοδο που διάλεξες. 100% σημαίνει ότι η ώρα ήταν πλήρης: 1 άτομο στο Physio, 3 άτομα στο Gym.</p><div class="grid2">`;
   [['physio','Physio · 1 άτομο τη φορά'],['gym','Gym · στόχος 3 άτομα']].forEach(([c, t]) => { h += `<div class="panel"><h4><span class="dot" style="background:rgb(${P_COL[c]})"></span>${t}</h4>${pHeat(c, S)}${pSlots(c, S)}</div>`; });
   h += '</div>';
   // weekly trend
-  const end = part ? new Date() : new Date(y, m + 1, 0), ws0 = weekStart(end), weeks = Array.from({ length:8 }, (_, i) => addDays(ws0, -7 * (7 - i)));
+  const end = part ? new Date() : B, ws0 = weekStart(end), weeks = Array.from({ length:8 }, (_, i) => addDays(ws0, -7 * (7 - i)));
   const wk = c => weeks.map(w0 => { const a = ymd(w0), b = ymd(addDays(w0, 6)); return bookings.filter(x => x.cat === c && pAct(x) && x.date >= a && x.date <= b).length; });
   const wl = weeks.map(w0 => w0.getDate() + '/' + (w0.getMonth() + 1));
   h += `<h3>Ραντεβού ανά εβδομάδα</h3><p class="sub">Οι τελευταίες 8 εβδομάδες. Η διακεκομμένη γραμμή δείχνει πόσα ραντεβού χωράνε σε μία εβδομάδα με τη μέση διάρκεια που έχεις (Physio ${Math.round(dur.physio)}΄, Gym ${Math.round(dur.gym)}΄).</p><div class="grid2">
     <div class="panel"><h4><span class="dot" style="background:rgb(${P_COL.physio})"></span>Physio<span class="capn">· χωράνε ${Math.round(wkCap('physio'))} ραντεβού την εβδομάδα</span></h4>${pBars(wk('physio'), wl, wkCap('physio'), `rgb(${P_COL.physio})`)}</div>
     <div class="panel"><h4><span class="dot" style="background:rgb(${P_COL.gym})"></span>Gym<span class="capn">· χωράνε ${Math.round(wkCap('gym'))} ραντεβού την εβδομάδα</span></h4>${pBars(wk('gym'), wl, wkCap('gym'), `rgb(${P_COL.gym})`)}</div></div>`;
-  // capacity in patients
-  h += `<h3>Πόσους ασθενείς χωράς</h3><p class="sub">Υπολογισμός με ${perfVpw} επισκέψεις ανά ασθενή την εβδομάδα. Ενεργός ασθενής είναι όποιος έχει ραντεβού τις τελευταίες 4 εβδομάδες ή τις επόμενες 2 και δεν έχει ολοκληρώσει θεραπεία.</p><div class="grid2">`;
+  // capacity: free places from real free slots
+  const f28 = ymd(addDays(new Date(), -27)), per4 = c => bookings.filter(b => b.cat === c && pAct(b) && b.date >= f28 && b.date <= today).length / 4;
+  h += `<h3>Πόσο χώρο έχεις ακόμα</h3><p class="sub">Βασίζεται στα πραγματικά ραντεβού των τελευταίων 4 εβδομάδων. Χωρητικότητα είναι όσα ραντεβού χωράνε μια εβδομάδα στις ώρες που έχεις ανοιχτές. Οι ελεύθερες θέσεις ασθενών προκύπτουν από τα ελεύθερα ραντεβού, με ${String(perfVpw).replace('.', ',')} επισκέψεις ανά ασθενή την εβδομάδα.</p><div class="grid2">`;
   ['physio','gym'].forEach(c => {
-    const capA = wkCap(c), capP = capA / perfVpw, now = act.sets[c].size, fill = capP ? now / capP : 0, real = now ? act.visits[c] / now / 4 : 0, free = Math.max(0, Math.round(capP - now));
+    const capA = wkCap(c), use = per4(c), freeA = Math.max(0, capA - use), freeP = Math.floor(freeA / perfVpw), now = act.sets[c].size, real = now ? act.visits[c] / now / 4 : 0, fill = capA ? use / capA : 0;
     h += `<div class="panel"><h4><span class="dot" style="background:rgb(${P_COL[c]})"></span>${c === 'gym' ? 'Gym' : 'Physio'}</h4>
-      <div class="cap-row"><span class="n">${now}</span> ενεργοί ασθενείς από <span class="n">${Math.round(capP)}</span> που χωράνε</div>
+      <div class="cap-row"><span class="n">${use.toFixed(0)}</span> ραντεβού την εβδομάδα (μέσος όρος) από <span class="n">${Math.round(capA)}</span> που χωράνε</div>
       <div class="meter"><i style="width:${Math.min(100, fill * 100)}%;background:rgb(${P_COL[c]})"></i></div>
-      <div class="cap-row">${free > 0 ? `Χωράνε άλλοι <b>${free}</b> ασθενείς.` : 'Το πρόγραμμα είναι γεμάτο στους ασθενείς.'} Εβδομαδιαία χωρητικότητα: <b>${Math.round(capA)}</b> ραντεβού.<br>Πραγματικός μέσος όρος: <b>${real ? real.toFixed(1).replace('.', ',') : '—'}</b> επισκέψεις ανά ασθενή την εβδομάδα.</div></div>`;
+      <div class="cap-row">Ελεύθερα: <b>${Math.round(freeA)}</b> ραντεβού την εβδομάδα, δηλαδή χώρος για περίπου <b>${freeP}</b> ακόμα ασθενείς.<br>Ενεργοί ασθενείς τώρα: <b>${now}</b>, με πραγματικό μέσο όρο <b>${real ? real.toFixed(1).replace('.', ',') : '—'}</b> επισκέψεις ανά ασθενή την εβδομάδα.</div></div>`;
   });
   h += '</div>';
   // income by month
@@ -1970,7 +1975,7 @@ function renderPerf(){
   document.getElementById('view').innerHTML = h;
 }
 async function openPerf(){
-  perfOn = true; financeOn = false; mode = 'month'; anchor = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  perfOn = true; financeOn = false; mode = perfPeriod; anchor = perfPeriod === 'month' ? new Date(anchor.getFullYear(), anchor.getMonth(), 1) : (() => { const t = new Date(); t.setHours(0,0,0,0); return t; })();
   if (finUnlocked) await loadPayments();
   render();
 }
@@ -1978,6 +1983,7 @@ document.getElementById('perf-btn').addEventListener('click', openPerf);
 document.getElementById('view').addEventListener('change', e => {
   if (!perfOn) return;
   if (e.target.id === 'perf-sat') { perfSat = e.target.checked; try { localStorage.setItem('sr_perf_sat2', perfSat ? '1' : '0'); } catch(_){} render(); }
+  if (e.target.id === 'perf-per') { perfPeriod = e.target.value; mode = perfPeriod; if (perfPeriod === 'week') { anchor = new Date(); anchor.setHours(0,0,0,0); } render(); }
   if (e.target.id === 'perf-vpw') { perfVpw = +e.target.value || 2; try { localStorage.setItem('sr_perf_vpw', String(perfVpw)); } catch(_){} render(); }
 });
 document.getElementById('view').addEventListener('click', async e => {
