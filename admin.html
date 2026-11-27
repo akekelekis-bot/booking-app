@@ -1828,7 +1828,7 @@ const pOpenDay = w => w < 5 || (w === 5 && perfSat);
 const pAct = b => b.status !== 'cancelled';
 function pDays(a, b){
   const today = ymd(new Date()), out = [];
-  for (let d = new Date(a); d <= b; d = addDays(d, 1)) { const k = ymd(d), w = dowMon(d); if (!pOpenDay(w) || k > today) continue; out.push({ k, w }); }
+  for (let d = new Date(a); d <= b; d = addDays(d, 1)) { const k = ymd(d), w = dowMon(d); if (!pOpenDay(w)) continue; out.push({ k, w }); }
   return out;
 }
 function pAvgDur(cat){
@@ -1935,8 +1935,8 @@ function renderPerf(){
   let h = `<div class="perf"><div class="verdict"><div class="big">${pPct(S.all)}</div><div class="tx"><span class="tag ${bc}">${bl} αξιοποίηση</span><br>Περίοδος: <b>${plabel}</b> (${wkm ? 'εβδομάδα' : 'μήνας'})<br>Συνολική πληρότητα ωρών του ιατρείου<br>${pDelta(S.all, Pv.days.length ? Pv.all : null, true)}</div>
     <div class="opts"><label>Περίοδος <select id="perf-per"><option value="week"${wkm ? ' selected' : ''}>Εβδομάδα</option><option value="month"${wkm ? '' : ' selected'}>Μήνας</option></select></label><label><input type="checkbox" id="perf-sat"${perfSat ? ' checked' : ''}> Μέτρηση Σαββάτου</label><label>Επισκέψεις ανά ασθενή / εβδομάδα <select id="perf-vpw">${[1,1.5,2,2.5,3].map(v => `<option${v === perfVpw ? ' selected' : ''}>${v}</option>`).join('')}</select></label></div></div>`;
   h += `<div class="kpis">
-    <div class="kpi"><div class="k">Πληρότητα Physio</div><div class="v">${pPct(S.o.physio)}</div><div class="s">${S.hrs.physio.toFixed(0)} ώρες από ${(S.days.length * P_HOURS.length).toFixed(0)} διαθέσιμες<br>${pDelta(S.o.physio, Pv.days.length ? Pv.o.physio : null, true)}</div></div>
-    <div class="kpi"><div class="k">Πληρότητα Gym</div><div class="v">${pPct(S.o.gym)}</div><div class="s">${S.hrs.gym.toFixed(0)} ώρες-ατόμων από ${(S.days.length * P_HOURS.length * 3).toFixed(0)}<br>${pDelta(S.o.gym, Pv.days.length ? Pv.o.gym : null, true)}</div></div>
+    <div class="kpi"><div class="k">Πληρότητα Physio</div><div class="v">${pPct(S.o.physio)}</div><div class="s">${S.n.physio} ραντεβού · ${S.hrs.physio.toFixed(0)} ώρες από ${(S.days.length * P_HOURS.length).toFixed(0)} διαθέσιμες<br>${pDelta(S.o.physio, Pv.days.length ? Pv.o.physio : null, true)}</div></div>
+    <div class="kpi"><div class="k">Πληρότητα Gym</div><div class="v">${pPct(S.o.gym)}</div><div class="s">${S.n.gym} ραντεβού · ${S.hrs.gym.toFixed(0)} ώρες-ατόμων από ${(S.days.length * P_HOURS.length * 3).toFixed(0)}<br>${pDelta(S.o.gym, Pv.days.length ? Pv.o.gym : null, true)}</div></div>
     <div class="kpi"><div class="k">Ραντεβού</div><div class="v">${S.total}</div><div class="s">Physio ${S.n.physio} · Gym ${S.n.gym}<br>${pDelta(S.total, Pv.total, false)}</div></div>
     <div class="kpi"><div class="k">Ασθενείς</div><div class="v">${S.patients}</div><div class="s">Νέοι ${S.newP} · Επανερχόμενοι ${S.retP}<br>${pDelta(S.patients, Pv.patients, false)}</div></div>
     <div class="kpi"><div class="k">Ακυρώσεις</div><div class="v">${S.canc}</div><div class="s">${pPct(S.cancRate)} των ραντεβού<br>${pDelta(S.cancRate, Pv.total ? Pv.cancRate : null, true)}</div></div>`;
@@ -1944,7 +1944,7 @@ function renderPerf(){
     <div class="kpi"><div class="k">Έσοδα ανά ώρα εργασίας</div><div class="v">${SM.workedH ? money(inc.paid / SM.workedH) : '—'}</div><div class="s">${SM.workedH.toFixed(0)} ώρες με ραντεβού (μήνας)<br>Physio ${SM.hrs.physio ? money(inc.byCat.physio / SM.hrs.physio) : '—'} · Gym ${SM.hrs.gym ? money(inc.byCat.gym / SM.hrs.gym) : '—'} ανά ώρα</div></div>`;
   else h += `<div class="kpi lock"><div class="k">Έσοδα και έσοδα ανά ώρα</div><div class="s">Κλειδωμένα με το PIN των Οικονομικών.</div><button id="perf-unlock">Ξεκλείδωμα</button></div>`;
   h += '</div>';
-  if (part) h += `<div class="sub" style="margin-top:10px">Η τρέχουσα περίοδος υπολογίζεται μέχρι σήμερα (${S.days.length} ημέρες λειτουργίας), ώστε οι μελλοντικές κενές ώρες να μη μειώνουν την πληρότητα.</div>`;
+  if (part) h += `<div class="sub" style="margin-top:10px">Η τρέχουσα περίοδος περιλαμβάνει και τα ραντεβού που έχουν ήδη κλειστεί για τις επόμενες ημέρες. Η πληρότητα ανεβαίνει όσο γεμίζει το πρόγραμμα.</div>`;
   h += `<h3>Πληρότητα ανά ημέρα και ώρα</h3><p class="sub">Κάθε κελί δείχνει πόσο γεμάτη ήταν αυτή η ώρα στην περίοδο που διάλεξες. 100% σημαίνει ότι η ώρα ήταν πλήρης: 1 άτομο στο Physio, 3 άτομα στο Gym.</p><div class="grid2">`;
   [['physio','Physio · 1 άτομο τη φορά'],['gym','Gym · στόχος 3 άτομα']].forEach(([c, t]) => { h += `<div class="panel"><h4><span class="dot" style="background:rgb(${P_COL[c]})"></span>${t}</h4>${pHeat(c, S)}${pSlots(c, S)}</div>`; });
   h += '</div>';
@@ -1956,12 +1956,12 @@ function renderPerf(){
     <div class="panel"><h4><span class="dot" style="background:rgb(${P_COL.physio})"></span>Physio<span class="capn">· χωράνε ${Math.round(wkCap('physio'))} ραντεβού την εβδομάδα</span></h4>${pBars(wk('physio'), wl, wkCap('physio'), `rgb(${P_COL.physio})`)}</div>
     <div class="panel"><h4><span class="dot" style="background:rgb(${P_COL.gym})"></span>Gym<span class="capn">· χωράνε ${Math.round(wkCap('gym'))} ραντεβού την εβδομάδα</span></h4>${pBars(wk('gym'), wl, wkCap('gym'), `rgb(${P_COL.gym})`)}</div></div>`;
   // capacity: free places from real free slots
-  const f28 = ymd(addDays(new Date(), -27)), per4 = c => bookings.filter(b => b.cat === c && pAct(b) && b.date >= f28 && b.date <= today).length / 4;
+  const tw0 = ymd(weekStart(new Date())), tw1 = ymd(addDays(weekStart(new Date()), 6)), thisW = c => bookings.filter(b => b.cat === c && pAct(b) && b.date >= tw0 && b.date <= tw1).length, f28 = ymd(addDays(new Date(), -27)), per4 = c => bookings.filter(b => b.cat === c && pAct(b) && b.date >= f28 && b.date <= today).length / 4;
   h += `<h3>Πόσο χώρο έχεις ακόμα</h3><p class="sub">Βασίζεται στα πραγματικά ραντεβού των τελευταίων 4 εβδομάδων. Χωρητικότητα είναι όσα ραντεβού χωράνε μια εβδομάδα στις ώρες που έχεις ανοιχτές. Οι ελεύθερες θέσεις ασθενών προκύπτουν από τα ελεύθερα ραντεβού, με ${String(perfVpw).replace('.', ',')} επισκέψεις ανά ασθενή την εβδομάδα.</p><div class="grid2">`;
   ['physio','gym'].forEach(c => {
     const capA = wkCap(c), use = per4(c), freeA = Math.max(0, capA - use), freeP = Math.floor(freeA / perfVpw), now = act.sets[c].size, real = now ? act.visits[c] / now / 4 : 0, fill = capA ? use / capA : 0;
     h += `<div class="panel"><h4><span class="dot" style="background:rgb(${P_COL[c]})"></span>${c === 'gym' ? 'Gym' : 'Physio'}</h4>
-      <div class="cap-row"><span class="n">${use.toFixed(0)}</span> ραντεβού την εβδομάδα (μέσος όρος) από <span class="n">${Math.round(capA)}</span> που χωράνε</div>
+      <div class="cap-row">Αυτή την εβδομάδα: <span class="n">${thisW(c)}</span> ραντεβού<br>Μέσος όρος τελευταίων 4 εβδομάδων: <span class="n">${use.toFixed(0)}</span> ραντεβού την εβδομάδα, από <span class="n">${Math.round(capA)}</span> που χωράνε</div>
       <div class="meter"><i style="width:${Math.min(100, fill * 100)}%;background:rgb(${P_COL[c]})"></i></div>
       <div class="cap-row">Ελεύθερα: <b>${Math.round(freeA)}</b> ραντεβού την εβδομάδα, δηλαδή χώρος για περίπου <b>${freeP}</b> ακόμα ασθενείς.<br>Ενεργοί ασθενείς τώρα: <b>${now}</b>, με πραγματικό μέσο όρο <b>${real ? real.toFixed(1).replace('.', ',') : '—'}</b> επισκέψεις ανά ασθενή την εβδομάδα.</div></div>`;
   });
