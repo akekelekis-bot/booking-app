@@ -389,6 +389,8 @@
   .card.cancelled{ --bg:var(--bg-cancelled); --fg:var(--fg-cancelled); }
 
   /* finance (hidden area) */
+  .perfbtn{ width:100%; margin-bottom:8px; background:#fff; color:#1F2A37; border:1px solid #D9D2C2; border-radius:999px; padding:9px 14px; font-size:13px; cursor:pointer; }
+  .perfbtn:hover{ background:#F7F4EC; }
   .lockbtn{ background:none; border:none; color:#fff; opacity:.28; font-size:15px; padding:6px 10px; margin-bottom:6px; cursor:pointer; border-radius:999px; }
   .lockbtn:hover{ opacity:.8; background:rgba(255,255,255,.1); }
   .fin-top{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:16px; }
@@ -728,6 +730,53 @@
 
   .appt .du{ font-style:normal; font-size:.74em; font-weight:600; opacity:.7; margin-left:5px; flex:none; padding:0 5px; border-radius:999px; background:rgba(0,0,0,.07); }
   .cell.u.busy{ background-image:repeating-linear-gradient(135deg, transparent 0 7px, rgba(120,110,90,.20) 7px 9px) !important; }
+  /* ---------- Απόδοση ---------- */
+  .perf{ max-width:1180px; margin:0 auto; padding:6px 4px 40px; color:#1F2A37; }
+  .perf h3{ font-family:Georgia,'Times New Roman',serif; font-weight:500; font-size:20px; margin:30px 0 4px; letter-spacing:-.01em; }
+  .perf .sub{ font-size:12.5px; color:#8A8272; margin:0 0 14px; line-height:1.5; }
+  .perf .verdict{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; border:1px solid #E6E0D4; border-radius:20px; padding:18px 24px; background:#fff; }
+  .perf .verdict .big{ font-family:Georgia,serif; font-size:46px; line-height:1; }
+  .perf .verdict .tx{ font-size:14px; line-height:1.55; }
+  .perf .verdict .tx b{ font-weight:600; }
+  .perf .tag{ display:inline-block; padding:3px 11px; border-radius:999px; font-size:12px; font-weight:600; }
+  .perf .tag.hi{ background:#E5F0E6; color:#2F6B3A; } .perf .tag.mid{ background:#F6EBD3; color:#8A6A1F; } .perf .tag.lo{ background:#F5DEDA; color:#9C3B2E; }
+  .perf .opts{ margin-left:auto; display:flex; gap:14px; align-items:center; font-size:12.5px; color:#6A7385; flex-wrap:wrap; }
+  .perf .opts select{ border:1px solid #E6E0D4; border-radius:8px; padding:4px 6px; background:#fff; font:inherit; }
+  .perf .kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-top:14px; }
+  .perf .kpi{ border:1px solid #E6E0D4; border-radius:18px; padding:14px 18px; background:#fff; }
+  .perf .kpi .k{ font-size:12px; color:#8A8272; }
+  .perf .kpi .v{ font-family:Georgia,serif; font-size:30px; margin-top:2px; }
+  .perf .kpi .s{ font-size:12px; color:#6A7385; margin-top:3px; line-height:1.45; }
+  .perf .up{ color:#2F6B3A; } .perf .dn{ color:#9C3B2E; } .perf .eq{ color:#8A8272; }
+  .perf .kpi.lock{ display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:8px; background:#FBFAF6; }
+  .perf .kpi.lock button{ border:1px solid #1F2A37; background:#1F2A37; color:#fff; border-radius:999px; padding:6px 14px; cursor:pointer; font:inherit; font-size:12.5px; }
+  .perf .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+  @media(max-width:980px){ .perf .grid2{ grid-template-columns:1fr; } }
+  .perf .panel{ border:1px solid #E6E0D4; border-radius:20px; padding:16px 18px; background:#fff; }
+  .perf .panel h4{ margin:0 0 10px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .perf .dot{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .perf table.heat{ border-collapse:separate; border-spacing:3px; width:100%; table-layout:fixed; font-size:12px; }
+  .perf table.heat th{ font-weight:500; color:#8A8272; padding:3px 0; font-size:11.5px; }
+  .perf table.heat th.h{ text-align:right; padding-right:6px; width:46px; }
+  .perf table.heat td{ text-align:center; height:30px; border-radius:7px; font-variant-numeric:tabular-nums; }
+  .perf table.heat td.none{ background:#F7F5EF; color:#C9C2B3; }
+  .perf table.heat tr.tot td, .perf table.heat td.tot{ background:none; font-weight:600; color:#1F2A37; }
+  .perf .bands{ display:flex; height:14px; border-radius:7px; overflow:hidden; margin:8px 0 6px; background:#F1EDE4; }
+  .perf .bands i{ display:block; height:100%; }
+  .perf .legend2{ display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:#6A7385; }
+  .perf .legend2 span::before{ content:''; display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; background:var(--c); vertical-align:-1px; }
+  .perf .chips{ display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 10px; }
+  .perf .chip{ border:1px solid #E6E0D4; border-radius:999px; padding:3px 10px; font-size:12px; background:#FBFAF6; }
+  .perf .chip b{ font-weight:600; }
+  .perf .lst{ font-size:12px; color:#8A8272; margin-top:8px; }
+  .perf .capn{ font-weight:400; color:#A88B5B; font-size:12px; }
+  .perf svg.pbar{ width:100%; height:auto; }
+  .perf svg .val{ font-size:11px; fill:#1F2A37; } .perf svg .lab{ font-size:10.5px; fill:#8A8272; } .perf svg .cap{ font-size:10.5px; fill:#A88B5B; }
+  .perf .meter{ height:12px; border-radius:6px; background:#F1EDE4; overflow:hidden; margin:6px 0; }
+  .perf .meter i{ display:block; height:100%; border-radius:6px; }
+  .perf .cap-row{ margin:12px 0 0; font-size:13px; line-height:1.55; }
+  .perf .cap-row .n{ font-family:Georgia,serif; font-size:22px; }
+  .perf .note{ font-size:11.5px; color:#9A917F; margin-top:26px; line-height:1.55; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 </head>
@@ -775,7 +824,7 @@
       <label><input type="color" id="col-cancelled"> Ακυρωμένο</label>
       <button type="button" id="col-reset">Επαναφορά χρωμάτων</button>
     </div>
-    <div class="side-foot"><button class="lockbtn" id="fin-btn" title="Οικονομικά" aria-label="Οικονομικά">&#128274;</button><button class="btn ghost" id="logout-btn">Αποσύνδεση</button></div>
+    <div class="side-foot"><button class="btn perfbtn" id="perf-btn">&#128200; Απόδοση</button><button class="lockbtn" id="fin-btn" title="Οικονομικά" aria-label="Οικονομικά">&#128274;</button><button class="btn ghost" id="logout-btn">Αποσύνδεση</button></div>
   </aside>
   <main class="main">
     <div class="toolbar">
@@ -1020,6 +1069,7 @@ function renderAgenda(days){
   document.getElementById('view').innerHTML = html;
 }
 function render(){
+  if (perfOn) { renderPerf(); return; }
   if (financeOn) { renderFinance(); return; }
   document.querySelectorAll('#mode-seg button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
   document.querySelectorAll('#vt-seg button').forEach(b => b.classList.toggle('active', b.dataset.vt === viewType));
@@ -1109,7 +1159,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.search')) resE
 // ---------- navigation ----------
 document.getElementById('mode-seg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  financeOn = false; mode = b.dataset.mode; render();
+  financeOn = false; perfOn = false; mode = b.dataset.mode; render();
 });
 function step(dir){
   if (mode === 'day') anchor = addDays(anchor, dir);
@@ -1140,7 +1190,7 @@ document.getElementById('view').addEventListener('click', e => {
 });
 document.getElementById('vt-seg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  financeOn = false; viewType = b.dataset.vt; try { localStorage.setItem('sr_vt2', viewType); } catch(_){}
+  financeOn = false; perfOn = false; viewType = b.dataset.vt; try { localStorage.setItem('sr_vt2', viewType); } catch(_){}
   if (mode === 'month') mode = 'week';
   render();
 });
@@ -1525,7 +1575,7 @@ async function askPin(){
 }
 async function openFinance(){
   if (!finUnlocked) { if (!await askPin()) return; finUnlocked = true; }
-  financeOn = true; mode = 'month'; anchor = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  financeOn = true; perfOn = false; mode = 'month'; anchor = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   document.querySelectorAll('#mode-seg button').forEach(b => b.classList.remove('active'));
   await loadPayments(); render();
 }
@@ -1768,6 +1818,173 @@ document.getElementById('view').addEventListener('click', async e => {
 });
 
 checkSession();
+
+// ---------- Απόδοση (capacity, όγκος, έσοδα) ----------
+let perfOn = false, perfSat = false, perfVpw = 2;
+try { perfSat = localStorage.getItem('sr_perf_sat2') === '1'; perfVpw = +localStorage.getItem('sr_perf_vpw') || 2; } catch(e){}
+const P_HOURS = [9,10,11,12,13,14,15,16,17,18,19,20], P_CAP = { physio:1, gym:3 };
+const P_COL = { physio:'91,132,184', gym:'196,154,74' };
+const pOpenDay = w => w < 5 || (w === 5 && perfSat);
+const pAct = b => b.status !== 'cancelled';
+function pMonthDays(y, m){
+  const today = ymd(new Date()), cur = today.slice(0,7) === mKey(y, m), dim = new Date(y, m+1, 0).getDate(), out = [];
+  for (let d = 1; d <= dim; d++) { const dt = new Date(y, m, d), k = ymd(dt), w = dowMon(dt); if (!pOpenDay(w)) continue; if (cur && k > today) continue; out.push({ k, w }); }
+  return out;
+}
+function pAvgDur(cat){
+  const since = ymd(addDays(new Date(), -90)), l = bookings.filter(b => b.cat === cat && pAct(b) && b.date >= since);
+  return l.length ? Math.max(60, l.reduce((s,b) => s + (b.duration || 60), 0) / l.length) : 60;
+}
+function pFirstSeen(){ const f = {}; bookings.forEach(b => { if (!pAct(b)) return; const k = ptKey(b.name, b.phone); if (!f[k] || b.date < f[k]) f[k] = b.date; }); return f; }
+function pMonth(y, m){
+  const pre = mKey(y, m), days = pMonthDays(y, m), dset = new Set(days.map(d => d.k)), first = pFirstSeen();
+  const act = bookings.filter(b => b.date.startsWith(pre) && pAct(b)), canc = bookings.filter(b => b.date.startsWith(pre) && !pAct(b));
+  const heat = { physio:{}, gym:{} }, nDays = {};
+  days.forEach(d => { nDays[d.w] = (nDays[d.w] || 0) + 1; });
+  ['physio','gym'].forEach(c => { for (let w = 0; w < 6; w++) { heat[c][w] = {}; P_HOURS.forEach(h => { heat[c][w][h] = 0; }); } });
+  const dowOf = k => dowMon(parseYmd(k));
+  act.forEach(b => { if (!dset.has(b.date)) return; const w = dowOf(b.date), s = toMin(b.time), e = s + (b.duration || 60);
+    P_HOURS.forEach(h => { const ov = Math.min(e, (h+1)*60) - Math.max(s, h*60); if (ov > 0) heat[b.cat][w][h] += ov / 60; }); });
+  const occ = {}, used = {}, capH = {};
+  ['physio','gym'].forEach(c => {
+    occ[c] = {}; used[c] = 0; capH[c] = days.length * P_HOURS.length * P_CAP[c];
+    for (let w = 0; w < 6; w++) { occ[c][w] = {}; P_HOURS.forEach(h => { const n = nDays[w] || 0; occ[c][w][h] = n ? heat[c][w][h] / (n * P_CAP[c]) : null; used[c] += heat[c][w][h]; }); }
+  });
+  const pat = {}, patCat = { physio:new Set(), gym:new Set() };
+  act.forEach(b => { const k = ptKey(b.name, b.phone); pat[k] = 1; patCat[b.cat].add(k); });
+  const keys = Object.keys(pat), nw = keys.filter(k => first[k] && first[k].startsWith(pre)).length;
+  const per = {}; act.forEach(b => { (per[b.date] = per[b.date] || []).push([toMin(b.time), toMin(b.time) + (b.duration || 60)]); });
+  let worked = 0; Object.values(per).forEach(l => { l.sort((a,b) => a[0]-b[0]); let cs = null, ce = null; l.forEach(([s,e]) => { if (cs === null) { cs = s; ce = e; } else if (s <= ce) ce = Math.max(ce, e); else { worked += ce - cs; cs = s; ce = e; } }); if (cs !== null) worked += ce - cs; });
+  const n = { physio: act.filter(b => b.cat === 'physio').length, gym: act.filter(b => b.cat === 'gym').length };
+  const hrs = { physio: act.filter(b => b.cat === 'physio').reduce((s,b) => s + (b.duration||60)/60, 0), gym: act.filter(b => b.cat === 'gym').reduce((s,b) => s + (b.duration||60)/60, 0) };
+  const o = { physio: capH.physio ? used.physio / capH.physio : 0, gym: capH.gym ? used.gym / capH.gym : 0 };
+  const all = (capH.physio + capH.gym) ? (used.physio + used.gym) / (capH.physio + capH.gym) : 0;
+  return { y, m, days, nDays, heat, occ, o, all, n, total: act.length, hrs, patients: keys.length, patCat, newP: nw, retP: keys.length - nw, canc: canc.length, cancRate: (act.length + canc.length) ? canc.length / (act.length + canc.length) : 0, workedH: worked / 60 };
+}
+function pIncome(y, m){
+  const pre = mKey(y, m);
+  const vprice = bk => { const vp = bk && plans.find(p => isVisitPlan(p) && p.cat === bk.cat && p.patient_key === ptKey(bk.name, bk.phone)); return vp ? +vp.price : 0; };
+  const pay = id => payments[id] || { amount: vprice(bookings.find(x => x.id === id)), paid:false };
+  const mp = monthlyPlans().filter(p => planActive(p, y, m));
+  const rows = bookings.filter(b => b.date.startsWith(pre) && pAct(b) && !mp.some(p => p.cat === b.cat && p.patient_key === ptKey(b.name, b.phone)));
+  let paid = 0, unpaid = 0; const byCat = { physio:0, gym:0 };
+  mp.map(p => mrow(p, y, m)).forEach(r => { paid += r.got; byCat[r.p.cat] += r.got; unpaid += r.left; });
+  rows.forEach(b => { const p = pay(b.id); if (p.paid) { paid += +p.amount; byCat[b.cat] += +p.amount; } else unpaid += +p.amount; });
+  return { paid, unpaid, expected: paid + unpaid, byCat };
+}
+function pActive(){
+  const from = ymd(addDays(new Date(), -27)), to = ymd(addDays(new Date(), 14)), out = { physio:new Set(), gym:new Set() }, cnt = { physio:0, gym:0 };
+  bookings.forEach(b => { if (!pAct(b) || b.date < from || b.date > to) return; const k = ptKey(b.name, b.phone); if (inactiveMap[k] && inactiveMap[k].inactive_since) return; out[b.cat].add(k); if (b.date <= ymd(new Date())) cnt[b.cat]++; });
+  return { sets: out, visits: cnt };
+}
+const pPct = v => Math.round(v * 100) + '%';
+function pDelta(cur, prev, pts){
+  if (prev === null || prev === undefined || (!pts && !prev)) return '<span class="eq">—</span>';
+  const d = pts ? Math.round((cur - prev) * 100) : Math.round((cur - prev) / prev * 100);
+  if (!d) return '<span class="eq">= όπως τον προηγ. μήνα</span>';
+  return `<span class="${d > 0 ? 'up' : 'dn'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}${pts ? ' μον.' : '%'} από τον προηγ. μήνα</span>`;
+}
+function pBand(o){ return o >= .7 ? ['hi','Υψηλή'] : o >= .4 ? ['mid','Μέτρια'] : ['lo','Χαμηλή']; }
+function pBars(vals, labels, cap, color, ghost, fmt, wide){
+  const W = wide ? 1040 : 520, H = wide ? 210 : 176, pl = 8, pb = 24, pt = 20, n = vals.length, f = fmt || (v => String(v));
+  const mx = Math.max(cap || 0, ...vals, ...(ghost || [0]), 1) * 1.12, bw = (W - pl - 8) / n, y = v => pt + (H - pt - pb) * (1 - v / mx);
+  let s = `<svg viewBox="0 0 ${W} ${H}" class="pbar" role="img">`;
+  if (cap) s += `<line x1="${pl}" x2="${W-8}" y1="${y(cap)}" y2="${y(cap)}" stroke="#A88B5B" stroke-dasharray="4 4"/>`;
+  vals.forEach((v, i) => { const x = pl + i*bw + bw*.2, w = bw*.6, g = ghost ? ghost[i] : 0;
+    if (g > v) s += `<rect x="${x}" y="${y(g)}" width="${w}" height="${Math.max(0, H-pb-y(g))}" rx="4" fill="${color}" opacity=".22"/>`;
+    s += `<rect x="${x}" y="${y(v)}" width="${w}" height="${Math.max(0, H-pb-y(v))}" rx="4" fill="${color}"/><text x="${x+w/2}" y="${y(Math.max(v, g))-5}" text-anchor="middle" class="val">${f(v)}</text><text x="${x+w/2}" y="${H-7}" text-anchor="middle" class="lab">${labels[i]}</text>`; });
+  return s + `<line x1="${pl}" x2="${W-8}" y1="${H-pb}" y2="${H-pb}" stroke="#E6E0D4"/></svg>`;
+}
+function pHeat(c, st){
+  const col = P_COL[c], dn = ['Δευ','Τρί','Τετ','Πέμ','Παρ','Σάβ'], nd = perfSat ? 6 : 5;
+  let h = `<table class="heat"><thead><tr><th class="h"></th>${dn.slice(0, nd).map(d => `<th>${d}</th>`).join('')}<th>Μ.Ο.</th></tr></thead><tbody>`;
+  P_HOURS.forEach(hr => {
+    h += `<tr><th class="h">${pad(hr)}:00</th>`; let sum = 0, cn = 0;
+    for (let w = 0; w < nd; w++) { const o = st.occ[c][w][hr];
+      if (o === null) h += '<td class="none">·</td>'; else { sum += o; cn++; const a = Math.min(1, o) * .85 + (o > 0 ? .06 : 0);
+        h += `<td style="background:rgba(${col},${a.toFixed(2)});color:${o > .55 ? '#fff' : '#1F2A37'}" title="${dn[w]} ${pad(hr)}:00 · ${pPct(o)}">${o > 0 ? pPct(o) : '–'}</td>`; } }
+    h += `<td class="tot">${cn ? pPct(sum / cn) : ''}</td></tr>`;
+  });
+  h += '<tr class="tot"><th class="h">Μ.Ο.</th>';
+  for (let w = 0; w < nd; w++) { let s = 0, k = 0; P_HOURS.forEach(hr => { const o = st.occ[c][w][hr]; if (o !== null) { s += o; k++; } }); h += `<td>${k ? pPct(s / k) : ''}</td>`; }
+  return h + `<td>${pPct(st.o[c])}</td></tr></tbody></table>`;
+}
+function pSlots(c, st){
+  const dn = ['Δευ','Τρί','Τετ','Πέμ','Παρ','Σάβ'], l = [];
+  for (let w = 0; w < (perfSat ? 6 : 5); w++) P_HOURS.forEach(h => { const o = st.occ[c][w][h]; if (o !== null) l.push({ w, h, o }); });
+  const hi = l.filter(x => x.o >= .8).length, lo = l.filter(x => x.o < .25).length, mid = l.length - hi - lo;
+  const top = [...l].sort((a, b) => b.o - a.o || a.w - b.w || a.h - b.h).filter(x => x.o > 0).slice(0, 4), low = [...l].sort((a, b) => a.o - b.o || a.w - b.w || a.h - b.h).slice(0, 4);
+  const chip = x => `<span class="chip"><b>${dn[x.w]} ${pad(x.h)}:00</b> · ${pPct(x.o)}</span>`, tot = l.length || 1;
+  return `<div class="bands"><i style="width:${hi/tot*100}%;background:rgb(${P_COL[c]})"></i><i style="width:${mid/tot*100}%;background:rgba(${P_COL[c]},.4)"></i></div>
+  <div class="legend2"><span style="--c:rgb(${P_COL[c]})">Γεμάτες ≥80%: ${hi} ώρες</span><span style="--c:rgba(${P_COL[c]},.4)">Ενδιάμεσες: ${mid}</span><span style="--c:#F1EDE4">Άδειες &lt;25%: ${lo}</span></div>
+  <div class="lst" style="margin-top:12px">Πιο γεμάτες ώρες (σκέψου επέκταση ή αύξηση τιμής):</div><div class="chips">${top.length ? top.map(chip).join('') : '<span class="chip">δεν υπάρχουν ακόμα δεδομένα</span>'}</div>
+  <div class="lst">Πιο άδειες ώρες (σκέψου μείωση ή προώθηση):</div><div class="chips">${low.map(chip).join('')}</div>`;
+}
+function renderPerf(){
+  document.querySelectorAll('#mode-seg button, #vt-seg button').forEach(b => b.classList.remove('active'));
+  const y = anchor.getFullYear(), m = anchor.getMonth(), py = m ? y : y - 1, pm = m ? m - 1 : 11;
+  document.getElementById('range-label').textContent = MONTHS[m] + ' ' + y + ' — Απόδοση';
+  const S = pMonth(y, m), Pv = pMonth(py, pm), inc = finUnlocked && !finLoadError ? pIncome(y, m) : null, incP = inc ? pIncome(py, pm) : null;
+  const [bc, bl] = pBand(S.all), act = pActive(), dur = { physio:pAvgDur('physio'), gym:pAvgDur('gym') };
+  const dpw = perfSat ? 6 : 5, wkCap = c => dpw * P_HOURS.length * 60 * P_CAP[c] / dur[c];
+  const today = ymd(new Date()), part = today.slice(0,7) === mKey(y, m);
+  let h = `<div class="perf"><div class="verdict"><div class="big">${pPct(S.all)}</div><div class="tx"><span class="tag ${bc}">${bl} αξιοποίηση</span><br>Συνολική πληρότητα ωρών του ιατρείου<br>${pDelta(S.all, Pv.days.length ? Pv.all : null, true)}</div>
+    <div class="opts"><label><input type="checkbox" id="perf-sat"${perfSat ? ' checked' : ''}> Μέτρηση Σαββάτου</label><label>Επισκέψεις ανά ασθενή / εβδομάδα <select id="perf-vpw">${[1,1.5,2,2.5,3].map(v => `<option${v === perfVpw ? ' selected' : ''}>${v}</option>`).join('')}</select></label></div></div>`;
+  h += `<div class="kpis">
+    <div class="kpi"><div class="k">Πληρότητα Physio</div><div class="v">${pPct(S.o.physio)}</div><div class="s">${S.hrs.physio.toFixed(0)} ώρες από ${(S.days.length * P_HOURS.length).toFixed(0)} διαθέσιμες<br>${pDelta(S.o.physio, Pv.days.length ? Pv.o.physio : null, true)}</div></div>
+    <div class="kpi"><div class="k">Πληρότητα Gym</div><div class="v">${pPct(S.o.gym)}</div><div class="s">${S.hrs.gym.toFixed(0)} ώρες-ατόμων από ${(S.days.length * P_HOURS.length * 3).toFixed(0)}<br>${pDelta(S.o.gym, Pv.days.length ? Pv.o.gym : null, true)}</div></div>
+    <div class="kpi"><div class="k">Ραντεβού</div><div class="v">${S.total}</div><div class="s">Physio ${S.n.physio} · Gym ${S.n.gym}<br>${pDelta(S.total, Pv.total, false)}</div></div>
+    <div class="kpi"><div class="k">Ασθενείς</div><div class="v">${S.patients}</div><div class="s">Νέοι ${S.newP} · Επανερχόμενοι ${S.retP}<br>${pDelta(S.patients, Pv.patients, false)}</div></div>
+    <div class="kpi"><div class="k">Ακυρώσεις</div><div class="v">${S.canc}</div><div class="s">${pPct(S.cancRate)} των ραντεβού<br>${pDelta(S.cancRate, Pv.total ? Pv.cancRate : null, true)}</div></div>`;
+  if (inc) h += `<div class="kpi"><div class="k">Έσοδα (εισπράχθηκαν)</div><div class="v">${money(inc.paid)}</div><div class="s">Αναμενόμενα: ${money(inc.expected)}<br>${pDelta(inc.paid, incP.paid, false)}</div></div>
+    <div class="kpi"><div class="k">Έσοδα ανά ώρα εργασίας</div><div class="v">${S.workedH ? money(inc.paid / S.workedH) : '—'}</div><div class="s">${S.workedH.toFixed(0)} ώρες με ραντεβού<br>Physio ${S.hrs.physio ? money(inc.byCat.physio / S.hrs.physio) : '—'} · Gym ${S.hrs.gym ? money(inc.byCat.gym / S.hrs.gym) : '—'} ανά ώρα</div></div>`;
+  else h += `<div class="kpi lock"><div class="k">Έσοδα και έσοδα ανά ώρα</div><div class="s">Κλειδωμένα με το PIN των Οικονομικών.</div><button id="perf-unlock">Ξεκλείδωμα</button></div>`;
+  h += '</div>';
+  if (part) h += `<div class="sub" style="margin-top:10px">Ο τρέχων μήνας υπολογίζεται μέχρι σήμερα (${S.days.length} ημέρες λειτουργίας), ώστε οι μελλοντικές κενές ώρες να μη μειώνουν την πληρότητα.</div>`;
+  h += `<h3>Πληρότητα ανά ημέρα και ώρα</h3><p class="sub">Κάθε κελί δείχνει πόσο γεμάτη ήταν αυτή η ώρα τον μήνα. 100% σημαίνει ότι η ώρα ήταν πάντα πλήρης: 1 άτομο στο Physio, 3 άτομα στο Gym.</p><div class="grid2">`;
+  [['physio','Physio · 1 άτομο τη φορά'],['gym','Gym · στόχος 3 άτομα']].forEach(([c, t]) => { h += `<div class="panel"><h4><span class="dot" style="background:rgb(${P_COL[c]})"></span>${t}</h4>${pHeat(c, S)}${pSlots(c, S)}</div>`; });
+  h += '</div>';
+  // weekly trend
+  const end = part ? new Date() : new Date(y, m + 1, 0), ws0 = weekStart(end), weeks = Array.from({ length:8 }, (_, i) => addDays(ws0, -7 * (7 - i)));
+  const wk = c => weeks.map(w0 => { const a = ymd(w0), b = ymd(addDays(w0, 6)); return bookings.filter(x => x.cat === c && pAct(x) && x.date >= a && x.date <= b).length; });
+  const wl = weeks.map(w0 => w0.getDate() + '/' + (w0.getMonth() + 1));
+  h += `<h3>Ραντεβού ανά εβδομάδα</h3><p class="sub">Οι τελευταίες 8 εβδομάδες. Η διακεκομμένη γραμμή δείχνει πόσα ραντεβού χωράνε σε μία εβδομάδα με τη μέση διάρκεια που έχεις (Physio ${Math.round(dur.physio)}΄, Gym ${Math.round(dur.gym)}΄).</p><div class="grid2">
+    <div class="panel"><h4><span class="dot" style="background:rgb(${P_COL.physio})"></span>Physio<span class="capn">· χωράνε ${Math.round(wkCap('physio'))} ραντεβού την εβδομάδα</span></h4>${pBars(wk('physio'), wl, wkCap('physio'), `rgb(${P_COL.physio})`)}</div>
+    <div class="panel"><h4><span class="dot" style="background:rgb(${P_COL.gym})"></span>Gym<span class="capn">· χωράνε ${Math.round(wkCap('gym'))} ραντεβού την εβδομάδα</span></h4>${pBars(wk('gym'), wl, wkCap('gym'), `rgb(${P_COL.gym})`)}</div></div>`;
+  // capacity in patients
+  h += `<h3>Πόσους ασθενείς χωράς</h3><p class="sub">Υπολογισμός με ${perfVpw} επισκέψεις ανά ασθενή την εβδομάδα. Ενεργός ασθενής είναι όποιος έχει ραντεβού τις τελευταίες 4 εβδομάδες ή τις επόμενες 2 και δεν έχει ολοκληρώσει θεραπεία.</p><div class="grid2">`;
+  ['physio','gym'].forEach(c => {
+    const capA = wkCap(c), capP = capA / perfVpw, now = act.sets[c].size, fill = capP ? now / capP : 0, real = now ? act.visits[c] / now / 4 : 0, free = Math.max(0, Math.round(capP - now));
+    h += `<div class="panel"><h4><span class="dot" style="background:rgb(${P_COL[c]})"></span>${c === 'gym' ? 'Gym' : 'Physio'}</h4>
+      <div class="cap-row"><span class="n">${now}</span> ενεργοί ασθενείς από <span class="n">${Math.round(capP)}</span> που χωράνε</div>
+      <div class="meter"><i style="width:${Math.min(100, fill * 100)}%;background:rgb(${P_COL[c]})"></i></div>
+      <div class="cap-row">${free > 0 ? `Χωράνε άλλοι <b>${free}</b> ασθενείς.` : 'Το πρόγραμμα είναι γεμάτο στους ασθενείς.'} Εβδομαδιαία χωρητικότητα: <b>${Math.round(capA)}</b> ραντεβού.<br>Πραγματικός μέσος όρος: <b>${real ? real.toFixed(1).replace('.', ',') : '—'}</b> επισκέψεις ανά ασθενή την εβδομάδα.</div></div>`;
+  });
+  h += '</div>';
+  // income by month
+  if (inc) {
+    const ms = Array.from({ length:6 }, (_, i) => { const d = new Date(y, m - 5 + i, 1); return d; }), vals = ms.map(d => pIncome(d.getFullYear(), d.getMonth()));
+    h += `<h3>Έσοδα ανά μήνα</h3><p class="sub">Η γεμάτη μπάρα είναι ό,τι εισπράχθηκε. Η ανοιχτόχρωμη δείχνει το αναμενόμενο ποσό που δεν έχει εισπραχθεί ακόμα.</p><div class="panel">${pBars(vals.map(v => Math.round(v.paid)), ms.map(d => MONTHS_SHORT[d.getMonth()]), 0, '#1F2A37', vals.map(v => Math.round(v.expected)), v => v + ' €', true)}</div>`;
+  }
+  h += `<div class="note">Η πληρότητα μετράει τις ώρες 09:00–21:00. Ένα ραντεβού 90΄ μετράει και στις δύο ώρες που καλύπτει. Οι ακυρωμένες κρατήσεις δεν υπολογίζονται. «Νέοι» είναι ασθενείς με την πρώτη τους κράτηση μέσα στον μήνα. Τα έσοδα προέρχονται από την καρτέλα Οικονομικά.</div></div>`;
+  document.getElementById('view').innerHTML = h;
+}
+async function openPerf(){
+  perfOn = true; financeOn = false; mode = 'month'; anchor = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  if (finUnlocked) await loadPayments();
+  render();
+}
+document.getElementById('perf-btn').addEventListener('click', openPerf);
+document.getElementById('view').addEventListener('change', e => {
+  if (!perfOn) return;
+  if (e.target.id === 'perf-sat') { perfSat = e.target.checked; try { localStorage.setItem('sr_perf_sat2', perfSat ? '1' : '0'); } catch(_){} render(); }
+  if (e.target.id === 'perf-vpw') { perfVpw = +e.target.value || 2; try { localStorage.setItem('sr_perf_vpw', String(perfVpw)); } catch(_){} render(); }
+});
+document.getElementById('view').addEventListener('click', async e => {
+  if (!perfOn || e.target.id !== 'perf-unlock') return;
+  if (!finUnlocked) { if (!await askPin()) return; finUnlocked = true; }
+  await loadPayments(); render();
+});
 </script>
 </body>
 </html>
